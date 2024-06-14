@@ -57,23 +57,23 @@ def prepare_combinations(
             final_combos.loc[i, "in_kg"] = "yes"
 
     # remove combos not in kg
-    not_in_ph = final_combos[final_combos["in_kg"].isna()]
-    final_combos = final_combos.dropna(subset=["in_kg"])
+    not_in_kg = final_combos[final_combos["in_kg"].isna()]
+    in_kg = final_combos.dropna(subset=["in_kg"])
 
     # make csv files
-    final_combos.to_csv(in_kg_out_path, index=False)
-    not_in_ph.to_csv(not_in_kg_out_path, index=False)
+    in_kg.to_csv(in_kg_out_path, index=False)
+    not_in_kg.to_csv(not_in_kg_out_path, index=False)
 
     # make text file with the results
-    drug1_list = final_combos["Drug1_CID"].tolist()
-    drug2_list = final_combos["Drug2_CID"].tolist()
+    drug1_list = in_kg["Drug1_CID"].tolist()
+    drug2_list = in_kg["Drug2_CID"].tolist()
     combos_kg_drugs = set(drug1_list + drug2_list)
 
     with open(results_txt_path, "w") as f:
         f.write(f"Total combinations: {n} \n")
         f.write(f"Total drugs in combinations: {len(final_combos_drugs)} \n")
         f.write(f"Total drugs in kg: {kg_drugs.shape[0]}\n")
-        f.write(f"Total combinations in kg: {final_combos.shape[0]}\n")
+        f.write(f"Total combinations in kg: {in_kg.shape[0]}\n")
         f.write(f"Total drugs have combinations in kg: {len(combos_kg_drugs)}\n")
 
     return final_combos
