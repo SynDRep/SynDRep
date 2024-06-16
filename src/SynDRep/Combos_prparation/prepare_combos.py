@@ -13,35 +13,54 @@ from pykeen.triples import TriplesFactory
 import matplotlib.pyplot as plt
 import numpy as np
 
-name_cid_dict = {}
+
 
 
 def prepare_combinations(
     combos_folder,
     kg_drug_file,
-    in_kg_out_path="combinations_in_kg.csv",
-    not_in_kg_out_path="combinations_not_in_kg.csv",
-    results_txt_path="results.txt",
+    out_dir,
+    name_cid_dict={},
     Scoring_method="ZIP",
+    generate_combos_type_file=True
 ):
+    """Prepare the drug combinations and produce the ones that can be added to KG
 
-    # get the final combinations
-    final_combos = get_final_combinations(combos_folder, Scoring_method)
+    Args:
+        combos_folder (str/path): a path to the folder containing the drug combinations.
+        kg_drug_file (str/path): a path to the csv file of KG drugs.
+        out_dir (str/path): a path to the desired output directory.
+        name_cid_dict (dict, optional): _description_. Defaults to {}.
+        Scoring_method (str, optional): scoring method of the combination. Defaults to "ZIP".
+        generate_combos_type_file (bool, optional): generates file to be used to enrich KG with combinations. Defaults to True.
 
+    Returns:
+        _type_: _description_
+    """
+    
     # load drug_df
     kg_drugs = pd.read_csv(kg_drug_file)
 
     # supply them with cids
 
-    kg_drugs = add_cid((kg_drugs, "Drug_name"))
+    kg_drugs = add_cid(kg_drugs, "Drug_name",name_cid_dict).dropna(subset=['Drug_CID'])
+    
+    # export the name_cid_dict
+    json.dump(name_cid_dict, open(f'{out_dir}/name_cid_dict.json','w'), indent=4)
+    
+    # get the final combinations
+    final_combos = get_merged_combinations(
+        folder_path=combos_folder,
+        name_cid_dict=name_cid_dict,
+        output_path=out_dir,
+        Scoring_method=Scoring_method)
 
     # make a dictionary for drugs in KG
     kg_drug_CID = {}
-    for i, cid in enumerate(kg_drugs["Drug_CID"]):
-
-        if not pd.isna(cid):
-            cid = int(cid)
-            kg_drug_CID[cid] = kg_drugs["Drug_name"][i]
+    for i, row in kg_drugs.iterrows():
+        cid = row['Drug_CID']
+        kg_drug_CID[cid] = row['Drug_name']
+        
     n = final_combos.shape[0]
     final_combos["in_kg"] = None
 
@@ -53,6 +72,7 @@ def prepare_combinations(
 
         final_combos_drugs.add(drug1_cid)
         final_combos_drugs.add(drug2_cid)
+        
         if kg_drug_CID.get(drug1_cid) and kg_drug_CID.get(drug2_cid):
             final_combos.loc[i, "in_kg"] = "yes"
 
@@ -61,25 +81,56 @@ def prepare_combinations(
     in_kg = final_combos.dropna(subset=["in_kg"])
 
     # make csv files
-    in_kg.to_csv(in_kg_out_path, index=False)
-    not_in_kg.to_csv(not_in_kg_out_path, index=False)
+    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+    
+    in_kg.to_csv(f'{out_dir}/combinations_in_kg.csv', index=False)
+    not_in_kg.to_csv(f'{out_dir}/combinations_not_in_kg.csv', index=False)
 
     # make text file with the results
     drug1_list = in_kg["Drug1_CID"].tolist()
     drug2_list = in_kg["Drug2_CID"].tolist()
     combos_kg_drugs = set(drug1_list + drug2_list)
+    in_kg[":TYPE"] = in_kg[Scoring_method].apply(synergy_detection)
 
-    with open(results_txt_path, "w") as f:
+    with open(f'{out_dir}/results.txt', "w") as f:
         f.write(f"Total combinations: {n} \n")
         f.write(f"Total drugs in combinations: {len(final_combos_drugs)} \n")
         f.write(f"Total drugs in kg: {kg_drugs.shape[0]}\n")
-        f.write(f"Total combinations in kg: {in_kg.shape[0]}\n")
+        f.write(f"Total combinations to be added to kg: {in_kg.shape[0]}\n")
         f.write(f"Total drugs have combinations in kg: {len(combos_kg_drugs)}\n")
+        f.write(f"Total HAS_SYNERGISM_WITH combinations: {len(in_kg[in_kg[':TYPE']=='HAS_SYNERGISM_WITH'])}\n")
+        f.write(f"Total HAS_ANTAGONISM_WITH combinations: {len(in_kg[in_kg[':TYPE']=='HAS_ANTAGONISM_WITH'])}\n")
+        f.write(f"Total HAS_ADDITIVE_EFFECT_WITH combinations: {len(in_kg[in_kg[':TYPE']=='HAS_ADDITIVE_EFFECT_WITH'])}\n")
 
-    return final_combos
+    if generate_combos_type_file:
+    # Initialize a list to store rows
+        relations = []
+
+        # Iterate through the input DataFrame   
+        for i, row in tqdm(in_kg.iterrows(), total=len(in_kg)):
+            drug1, drug2 = row["Drug1_name"], row["Drug2_name"]
+            drug1_cid, drug2_cid = row["Drug1_CID"], row["Drug2_CID"]
+            hsa, bliss, loewe, zip, type = row["HSA"], row["Bliss"], row["Loewe"], row["ZIP"], row[":TYPE"]
+
+            # Append both directions of the relationships
+            relations.append([drug1, drug2, drug1_cid, drug2_cid, hsa, bliss, loewe, zip, type])
+            relations.append([drug2, drug1, drug2_cid, drug1_cid, hsa, bliss, loewe, zip, type])
+
+        # Create a DataFrame from the list and remove duplicates
+        columns = ["Source_label", "Target_label", "Source_CID", "Target_CID", "HSA", "Bliss", "Loewe", "ZIP", ":TYPE"]
+        has_comb = pd.DataFrame(relations, columns=columns).drop_duplicates()
+
+        # Remove self-interactions
+        has_comb = has_comb[has_comb["Source_label"] != has_comb["Target_label"]]
+        cypher = has_comb[["Source_label", "Source_CID", ":TYPE", "Target_label", "Target_CID", "HSA", "Bliss", "Loewe", "ZIP"]]
+
+        # Save to CSV
+        cypher.to_csv(f'{out_dir}/has_combination_with_CYPHER.csv', index=False)
+            
+    return final_combos, cypher
 
 
-def get_final_combinations(folder_path, output_path, Scoring_method="ZIP"):
+def get_merged_combinations(folder_path, output_path, name_cid_dict, Scoring_method="ZIP"):
     """_summary_
 
     Args:
@@ -87,11 +138,6 @@ def get_final_combinations(folder_path, output_path, Scoring_method="ZIP"):
     """
 
     combos = merge_files(folder_path)
-
-    # supply them with cid
-
-    combos = add_cid((combos, "Drug1_name"))
-    combos = add_cid((combos, "Drug2_name"))
 
     # make CIDs as str
     combos[["Drug1_CID", "Drug2_CID"]] = combos[["Drug1_CID", "Drug2_CID"]].astype(str)
@@ -133,10 +179,20 @@ def get_final_combinations(folder_path, output_path, Scoring_method="ZIP"):
         combo_score["DrugPair"].str.split("-", expand=True).dropna()
     )
     filtered_df = combo_score[~((combo_score["Value_Check"] == "Mixed"))]
+    
+    #get names
+    
+    cid_name_dict = {str(v):k for k,v in name_cid_dict.items()}
+    
+    filtered_df ['Drug1_name']= filtered_df['Drug1_CID'].apply(cid_name_dict.get) 
+    filtered_df ['Drug2_name']= filtered_df['Drug2_CID'].apply(cid_name_dict.get) 
+    
     final_combos = filtered_df[
         [
             "Drug1_CID",
+            "Drug1_name",
             "Drug2_CID",
+            "Drug2_name",
             "HSA_values",
             "Bliss_values",
             "Loewe_values",
@@ -147,13 +203,13 @@ def get_final_combinations(folder_path, output_path, Scoring_method="ZIP"):
             "ZIP",
         ]
     ].reset_index(drop=True)
-    final_combos.to_csv(output_path, index=False)
+    final_combos.to_csv(f'{output_path}/all_combos.csv', index=False)
 
     return final_combos
 
 
 def merge_files(folder_path):
-    """_summary_
+    """concatenates all csv files  in the directory
 
     Args:
         folder_path (String): a path to the folder containing the combinations from databases in the recommended format
@@ -189,9 +245,17 @@ def check_pos_neg(lst):
 
 
 def get_cid(drug_name):
+    """get the PubChem ID for a drug
+
+    Args:
+        drug_name (str): drug name
+
+    Returns:
+        int: the cid of a drug
+    """
 
     # add CID
-    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/cids/txt"
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{drug_name}/cids/txt"
     response = requests.get(url)
     if response.status_code == 200:
         cid = int(response.text.split("\n")[0])
@@ -200,7 +264,7 @@ def get_cid(drug_name):
     return cid
 
 
-def add_cid(df, drug_name_column):
+def add_cid(df, drug_name_column, name_cid_dict):
     """adds a column with drugs cid
 
     Args:
@@ -211,11 +275,29 @@ def add_cid(df, drug_name_column):
     cid_column = drug_name_column.replace("name", "CID")
     df[cid_column] = None
 
-    for i, name in tqdm(enumerate(df[drug_name_column])):
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        name = row[drug_name_column]
         cid = name_cid_dict.get(name)
         if cid:
             df.loc[i, cid_column] = cid
         else:
             cid = get_cid(name)
             name_cid_dict[name] = cid
+            df.loc[i, cid_column] = cid
     return df
+
+def synergy_detection(value):
+    """_summary_
+
+    Args:
+        value (_type_): _description_
+
+    Returns:
+        str: combination type as symergism, antgonism, or addition
+    """
+    if value > 0:
+        return 'HAS_SYNERGISM_WITH'
+    elif value < 0:
+        return 'HAS_ANTAGONISM_WITH'
+    else:
+        return 'HAS_ADDITIVE_EFFECT_WITH'
