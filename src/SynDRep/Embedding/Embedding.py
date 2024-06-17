@@ -5,17 +5,20 @@
 
 import pandas as pd
 from pykeen.triples import TriplesFactory
+import pathlib
 
 
 def create_data_splits(
     kg_file,
-    data_out_dir,
+    out_dir,
     subsplits=True,
     test_specific_type=False,
     kg_labels_file=None,
     source_type=None,
     target_type=None,
 ):
+    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+
     # Create a TriplesFactory object from your knowledge graph file
     kg_triples_factory = TriplesFactory.from_path(kg_file)
     train_df, test_df, validation_df, train_tf, test_tf, validation_tf = make_splits(
@@ -32,8 +35,7 @@ def create_data_splits(
         "All nodes and relations in test and validation sets are there in the training set :)"
     )
 
-    for data in ["train_data", "test_data", "validation_data"]:
-        triplets_to_file(data_out_dir, eval(data.replace("data", "df")), data)
+    
     if subsplits:
         main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
         (
@@ -58,13 +60,13 @@ def create_data_splits(
             "validation_data_ss",
             "main_test_data",
         ]:
-            triplets_to_file(data_out_dir, eval(data.replace("data", "df")), data)
+            triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
 
         print("all done :)")
         if test_specific_type:
-            if all(kg_labels_file, test_df, source_type, target_type):
+            if all([kg_labels_file, source_type, target_type]):
                 generate_test_specific_type(
-                    kg_labels_file, main_test_df, source_type, target_type, data_out_dir
+                    kg_labels_file, main_test_df, source_type, target_type, out_dir
                 )
             else:
                 raise TypeError(
@@ -74,15 +76,16 @@ def create_data_splits(
         return train_tf_ss, test_tf_ss, validation_tf_ss
 
     if test_specific_type:
-        if all(kg_labels_file, test_df, source_type, target_type):
+        if all([kg_labels_file, source_type, target_type]):
             generate_test_specific_type(
-                kg_labels_file, test_df, source_type, target_type, data_out_dir
+                kg_labels_file, test_df, source_type, target_type, out_dir
             )
         else:
             raise TypeError(
                 "One or many of kg_labels_file, test_df, source_type, target_type is/are not given"
             )
-
+    for data in ["train_data", "test_data", "validation_data"]:
+        triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
     print("all done :)")
     return train_tf, test_tf, validation_tf
 
@@ -127,9 +130,14 @@ def get_nodes_and_relations(df):
 
 
 def triples_to_df(tripl_tf):
+    entity_id_to_label = tripl_tf.entity_id_to_label
+    relation_id_to_label = tripl_tf.relation_id_to_label
     df = pd.DataFrame(
         tripl_tf.mapped_triples.numpy(), columns=["source", "relation", "target"]
     )
+    df['source'] = df['source'].map(entity_id_to_label)
+    df['relation'] = df['relation'].map(relation_id_to_label)
+    df['target'] = df['target'].map(entity_id_to_label)
     return df
 
 
@@ -137,7 +145,7 @@ def triplets_to_file(out_folder: str, df: pd.DataFrame, data_type):
 
     output_file = out_folder + "/" + data_type + ".tsv"
     df.to_csv(output_file, sep="\t", header=False, index=False)
-    print(f"Train triplets saved to '{output_file}'.")
+    print(f"{data_type} saved to '{output_file}'.")
     return
 
 

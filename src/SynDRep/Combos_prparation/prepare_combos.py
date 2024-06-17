@@ -10,26 +10,57 @@ from statistics import mean
 import json
 
 
+def generate_enriched_kg(
+    kg_tsv: str,
+    combos_folder: str,
+    kg_drug_file: str,
+    out_dir: str,
+    name_cid_dict: dict = {},
+    Scoring_method: str = "ZIP",
+):
+    """Produces an enriched KG with drug-drug combinations
+
+    :param kg_tsv: a path to tsv file of KG.
+    :param combos_folder: a path to the folder containing the drug combinations.
+    :param kg_drug_file: a path to the csv file of KG drugs.
+    :param out_dir: a path to the desired output directory.
+    :param name_cid_dict: a dictionary of drug names to cid, defaults to {}
+    :param Scoring_method: a scoring method of the combination, defaults to "ZIP"
+    :return: a df of enriched KG
+    """
+    
+    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    _, final_combos_with_relations = prepare_combinations(
+        combos_folder, kg_drug_file, out_dir, name_cid_dict, Scoring_method
+    )
+    combos_df = final_combos_with_relations[["Source_label", ":TYPE", "Target_label"]]
+    kg_df = pd.read_table(
+        kg_tsv, header=None, names=["Source_label", ":TYPE", "Target_label"]
+    )
+
+    enriched_kg = pd.concat([combos_df, kg_df], ignore_index=False)
+    enriched_kg.to_csv(
+        f"{out_dir}/enriched_kg.tsv", sep="\t", index=False, header=False
+    )
+    return enriched_kg
+
+
 def prepare_combinations(
-    combos_folder,
-    kg_drug_file,
-    out_dir,
-    name_cid_dict={},
-    Scoring_method="ZIP",
-    generate_combos_type_file=True,
+    combos_folder: str,
+    kg_drug_file: str,
+    out_dir: str,
+    name_cid_dict: dict = {},
+    Scoring_method: str = "ZIP",
 ):
     """Prepare the drug combinations and produce the ones that can be added to KG
 
-    Args:
-        combos_folder (str/path): a path to the folder containing the drug combinations.
-        kg_drug_file (str/path): a path to the csv file of KG drugs.
-        out_dir (str/path): a path to the desired output directory.
-        name_cid_dict (dict, optional): _description_. Defaults to {}.
-        Scoring_method (str, optional): scoring method of the combination. Defaults to "ZIP".
-        generate_combos_type_file (bool, optional): generates file to be used to enrich KG with combinations. Defaults to True.
-
-    Returns:
-        _type_: _description_
+    :param combos_folder: a path to the folder containing the drug combinations.
+    :param kg_drug_file: a path to the csv file of KG drugs.
+    :param out_dir: a path to the desired output directory.
+    :param name_cid_dict: a dictionary of drug names to cid, defaults to {}
+    :param Scoring_method: a scoring method of the combination, defaults to "ZIP"
+    :return: a final combinations to be added to KG
     """
 
     # load drug_df
@@ -103,64 +134,64 @@ def prepare_combinations(
             f"Total HAS_ADDITIVE_EFFECT_WITH combinations: {len(in_kg[in_kg[':TYPE']=='HAS_ADDITIVE_EFFECT_WITH'])}\n"
         )
 
-    if generate_combos_type_file:
-        # Initialize a list to store rows
-        relations = []
+    relations = []
 
-        # Iterate through the input DataFrame
-        for i, row in tqdm(in_kg.iterrows(), total=len(in_kg)):
-            drug1, drug2 = row["Drug1_name"], row["Drug2_name"]
-            drug1_cid, drug2_cid = row["Drug1_CID"], row["Drug2_CID"]
-            hsa, bliss, loewe, zip, type = (
-                row["HSA"],
-                row["Bliss"],
-                row["Loewe"],
-                row["ZIP"],
-                row[":TYPE"],
-            )
+    # Iterate through the input DataFrame
+    for i, row in tqdm(in_kg.iterrows(), total=len(in_kg)):
+        drug1, drug2 = row["Drug1_name"], row["Drug2_name"]
+        drug1_cid, drug2_cid = row["Drug1_CID"], row["Drug2_CID"]
+        hsa, bliss, loewe, zip, type = (
+            row["HSA"],
+            row["Bliss"],
+            row["Loewe"],
+            row["ZIP"],
+            row[":TYPE"],
+        )
 
-            # Append both directions of the relationships
-            relations.append(
-                [drug1, drug2, drug1_cid, drug2_cid, hsa, bliss, loewe, zip, type]
-            )
-            relations.append(
-                [drug2, drug1, drug2_cid, drug1_cid, hsa, bliss, loewe, zip, type]
-            )
+        # Append both directions of the relationships
+        relations.append(
+            [drug1, drug2, drug1_cid, drug2_cid, hsa, bliss, loewe, zip, type]
+        )
+        relations.append(
+            [drug2, drug1, drug2_cid, drug1_cid, hsa, bliss, loewe, zip, type]
+        )
 
-        # Create a DataFrame from the list and remove duplicates
-        columns = [
+    # Create a DataFrame from the list and remove duplicates
+    columns = [
+        "Source_label",
+        "Target_label",
+        "Source_CID",
+        "Target_CID",
+        "HSA",
+        "Bliss",
+        "Loewe",
+        "ZIP",
+        ":TYPE",
+    ]
+    has_comb = pd.DataFrame(relations, columns=columns).drop_duplicates()
+
+    # Remove self-interactions
+    has_comb = has_comb[has_comb["Source_label"] != has_comb["Target_label"]]
+    final_combos_with_relations = has_comb[
+        [
             "Source_label",
-            "Target_label",
             "Source_CID",
+            ":TYPE",
+            "Target_label",
             "Target_CID",
             "HSA",
             "Bliss",
             "Loewe",
             "ZIP",
-            ":TYPE",
         ]
-        has_comb = pd.DataFrame(relations, columns=columns).drop_duplicates()
+    ]
 
-        # Remove self-interactions
-        has_comb = has_comb[has_comb["Source_label"] != has_comb["Target_label"]]
-        cypher = has_comb[
-            [
-                "Source_label",
-                "Source_CID",
-                ":TYPE",
-                "Target_label",
-                "Target_CID",
-                "HSA",
-                "Bliss",
-                "Loewe",
-                "ZIP",
-            ]
-        ]
+    # Save to CSV
+    final_combos_with_relations.to_csv(
+        f"{out_dir}/has_combination_with.csv", index=False
+    )
 
-        # Save to CSV
-        cypher.to_csv(f"{out_dir}/has_combination_with_CYPHER.csv", index=False)
-
-    return final_combos, cypher
+    return final_combos, final_combos_with_relations
 
 
 def get_merged_combinations(
