@@ -11,7 +11,84 @@ from pykeen.triples import TriplesFactory
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from Prediction import predict_diff_dataset
-from Scoring import mean_hits, percents_true_prdictions, multiclass_score_func
+from Scoring import (
+    mean_hits,
+    percents_true_prdictions,
+    multiclass_score_func,
+    draw_graph,
+)
+
+
+def compare_embeddings(
+    models_names: list,
+    kg_file,
+    out_dir,
+    model_name,
+    best_out_file: str = "predictions_best.csv",
+    config_path=None,
+    subsplits=True,
+    test_specific_type=False,
+    kg_labels_file=None,
+    source_type=None,
+    target_type=None,
+    predict_all=False,
+    all_out_file: str = None,
+    with_annotation=True,
+    filter_training=False,
+    with_scoring=True,
+):
+
+    results = []
+
+    for model_name in models_names:
+        embedding_results = kg_embedding(
+            kg_file=kg_file,
+            out_dir=out_dir,
+            model_name=model_name,
+            best_out_file=best_out_file,
+            config_path=config_path,
+            subsplits=subsplits,
+            test_specific_type=test_specific_type,
+            kg_labels_file=kg_labels_file,
+            source_type=source_type,
+            target_type=target_type,
+            predict_all=predict_all,
+            all_out_file=all_out_file,
+            with_annotation=with_annotation,
+            filter_training=filter_training,
+            with_scoring=with_scoring,
+        )
+        result = [model_name]
+        result.extend(embedding_results)
+        results.append(result)
+
+    if test_specific_type:
+        columns = [
+            "Perctage of true predictions for all reltions",
+            "adjusted_arithmetic_mean_rank",
+            "hits_at_10",
+            "roc_auc for all realtions",
+            f"Perctage of true predictions for {source_type}-{target_type} reltions",
+            f"roc-auc for {source_type}-{target_type} reltions",
+        ]
+    else:
+        columns = [
+            "Perctage of true predictions for all reltions",
+            "adjusted_arithmetic_mean_rank",
+            "hits_at_10",
+            "roc-auc for all realtions",
+        ]
+    results_df = pd.DataFrame(results, columns=columns)
+    df = results_df.reindex(models_names)
+    for metric in columns:
+        df = df[metric]
+        draw_graph(
+            df=results_df[metric],
+            title=metric.replace("_", " ") + " for all models",
+            xlabel="Models",
+            ylabel=metric.replace("_", " "),
+            path=f"{out_dir}/{metric}.jpg",
+        )
 
 
 def kg_embedding(
@@ -153,7 +230,6 @@ def kg_embedding(
             )
 
             return (
-                pipline_results,
                 percent_true,
                 mean,
                 hits,
@@ -176,7 +252,7 @@ def kg_embedding(
         ),
         indent=4,
     )
-    return pipline_results, percent_true, mean, hits, roc
+    return (percent_true, mean, hits, roc)
 
 
 def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):

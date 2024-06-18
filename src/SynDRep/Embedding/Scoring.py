@@ -7,7 +7,7 @@ import numpy as np
 import json
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
-import numpy as np
+import matplotlib.pyplot as plt
 
 
 def percents_true_prdictions(df):
@@ -59,3 +59,12 @@ def mean_hits(results_json):
     mean = model_dict["metrics"]["both"]["realistic"]["adjusted_arithmetic_mean_rank"]
     hits = model_dict["metrics"]["both"]["realistic"]["hits_at_10"]
     return mean, hits
+
+
+def draw_graph(df, models, tilte, xlabel, ylabel, path):
+    
+    df.plot(kind="bar", figsize=(10, 6))
+    plt.title(tilte, fontweight="bold")
+    plt.xlabel(xlabel, fontweight="bold")
+    plt.ylabel(ylabel, fontweight="bold")
+    plt.savefig(path)
