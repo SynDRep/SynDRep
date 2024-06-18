@@ -3,9 +3,152 @@
 """do the embedding of enriched KG"""
 
 
-import pandas as pd
-from pykeen.triples import TriplesFactory
+import json
 import pathlib
+import pandas as pd
+
+from pykeen.triples import TriplesFactory
+from pykeen.hpo.hpo import hpo_pipeline_from_path
+from pykeen.pipeline import pipeline_from_config
+from Prediction import predict_diff_dataset
+
+
+def kg_embedding(
+    kg_file,
+    out_dir,
+    model_name,
+    best_out_file: str = "predictions_best.csv",
+    config_path=None,
+    subsplits=True,
+    test_specific_type=False,
+    kg_labels_file=None,
+    source_type=None,
+    target_type=None,
+    predict_all=False,
+    all_out_file: str = None,
+    with_annotation=True,
+    filter_training=False,
+):
+
+    # make the splits
+    if subsplits:
+        (
+            train_df,
+            test_df,
+            validation_df,
+            train_tf,
+            test_tf,
+            validation_tf,
+            main_test_df,
+        ) = create_data_splits(
+            kg_file,
+            out_dir,
+            subsplits,
+            test_specific_type,
+            kg_labels_file,
+            source_type,
+            target_type,
+        )
+    else:
+        train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
+            create_data_splits(
+                kg_file,
+                out_dir,
+                subsplits,
+                test_specific_type,
+                kg_labels_file,
+                source_type,
+                target_type,
+            )
+        )
+
+        main_test_df = None
+
+    if config_path:
+        config_file = config_path
+    else:
+        config_file = f"{model_name}_config_hpo.json"
+    # run hpo
+    run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir)
+
+    # run pipeline
+    pipline_results = run_pipeline(
+        train_tf, test_tf, validation_tf, model_name, out_dir
+    )
+
+    # prediction
+    if main_test_df:
+        predict_diff_dataset(
+            model=pipline_results.model,
+            model_name=model_name,
+            training_tf=train_tf,
+            main_test_df=main_test_df,
+            out_dir=out_dir,
+            kg_labels_file=kg_labels_file,
+            best_out_file=best_out_file,
+            with_annotation=with_annotation,
+            training_df=train_df,
+            testing_df=test_df,
+            validation_df=validation_df,
+            filter_training=filter_training,
+            predict_all=predict_all,
+            all_out_file=all_out_file,
+        )
+    else:
+        print("There is no test_subsplits to perform predictions.")
+
+    # specif types testing set predictions
+    if test_specific_type:
+        sp_test_df = pd.read_table(
+            f"{out_dir}/test_{source_type}_{target_type}.tsv",
+            header=None,
+            names=["source", "relation", "target"],
+        )
+        predict_diff_dataset(
+            model=pipline_results.model,
+            model_name=model_name,
+            training_tf=train_tf,
+            main_test_df=sp_test_df,
+            out_dir=out_dir,
+            kg_labels_file=kg_labels_file,
+            best_out_file=f'{source_type}_{target_type}_{best_out_file}',
+            with_annotation=with_annotation,
+            training_df=train_df,
+            testing_df=test_df,
+            validation_df=validation_df,
+            filter_training=filter_training,
+            predict_all=predict_all,
+            all_out_file=f'{source_type}_{target_type}_{all_out_file}',
+        )
+    return pipline_results
+
+
+def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
+    # run pipeline
+    config = json.load(
+        open(
+            f"{out_dir}/{model_name}/{model_name}_hpo_results/best_pipeline/pipeline_config.json",
+            "r",
+        )
+    )
+    for data in ["training", "testing", "validation"]:
+        config["pipeline"].pop(data, None)
+    pipeline_result = pipeline_from_config(
+        config=config, training=train_tf, validation=validation_tf, testing=test_tf
+    )
+    pipeline_result.save_to_directory(
+        f"{out_dir}/{model_name}/{model_name}_best_model_results"
+    )
+    return pipeline_result
+
+
+def run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir):
+    hpo_results = hpo_pipeline_from_path(
+        path=config_file, training=train_tf, validation=validation_tf, testing=test_tf
+    )
+    pathlib.Path(f"{out_dir}/{model_name}").mkdir(parents=True, exist_ok=True)
+    hpo_results.save_to_directory(f"{out_dir}/{model_name}/{model_name}_hpo_results")
+    return hpo_results
 
 
 def create_data_splits(
@@ -35,7 +178,6 @@ def create_data_splits(
         "All nodes and relations in test and validation sets are there in the training set :)"
     )
 
-    
     if subsplits:
         main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
         (
@@ -47,9 +189,14 @@ def create_data_splits(
             validation_tf_ss,
         ) = make_splits(train_tf)
         while not nodes_relations_check(train_df_ss, test_df_ss, validation_df_ss):
-            train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
-                make_splits(train_tf)
-            )
+            (
+                train_df_ss,
+                test_df_ss,
+                validation_df_ss,
+                train_tf_ss,
+                test_tf_ss,
+                validation_tf_ss,
+            ) = make_splits(train_tf)
 
         print(
             "All nodes and relations in test and validation subsets are there in the training set :)"
@@ -73,7 +220,15 @@ def create_data_splits(
                     "One or many of kg_labels_file, test_df, source_type, target_type is/are not given"
                 )
 
-        return train_tf_ss, test_tf_ss, validation_tf_ss
+        return (
+            train_df_ss,
+            test_df_ss,
+            validation_df_ss,
+            train_tf_ss,
+            test_tf_ss,
+            validation_tf_ss,
+            main_test_df,
+        )
 
     if test_specific_type:
         if all([kg_labels_file, source_type, target_type]):
@@ -87,7 +242,7 @@ def create_data_splits(
     for data in ["train_data", "test_data", "validation_data"]:
         triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
     print("all done :)")
-    return train_tf, test_tf, validation_tf
+    return train_df, test_df, validation_df, train_tf, test_tf, validation_tf
 
 
 def make_splits(kg_triples_factory):
@@ -135,9 +290,9 @@ def triples_to_df(tripl_tf):
     df = pd.DataFrame(
         tripl_tf.mapped_triples.numpy(), columns=["source", "relation", "target"]
     )
-    df['source'] = df['source'].map(entity_id_to_label)
-    df['relation'] = df['relation'].map(relation_id_to_label)
-    df['target'] = df['target'].map(entity_id_to_label)
+    df["source"] = df["source"].map(entity_id_to_label)
+    df["relation"] = df["relation"].map(relation_id_to_label)
+    df["target"] = df["target"].map(entity_id_to_label)
     return df
 
 
