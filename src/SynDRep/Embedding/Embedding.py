@@ -11,6 +11,7 @@ from pykeen.triples import TriplesFactory
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from Prediction import predict_diff_dataset
+from Scoring import mean_hits, percents_true_prdictions, multiclass_score_func
 
 
 def kg_embedding(
@@ -28,6 +29,7 @@ def kg_embedding(
     all_out_file: str = None,
     with_annotation=True,
     filter_training=False,
+    with_scoring=True,
 ):
 
     # make the splits
@@ -62,7 +64,7 @@ def kg_embedding(
             )
         )
 
-        main_test_df = None
+        main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
 
     if config_path:
         config_file = config_path
@@ -77,25 +79,31 @@ def kg_embedding(
     )
 
     # prediction
-    if main_test_df:
-        predict_diff_dataset(
-            model=pipline_results.model,
-            model_name=model_name,
-            training_tf=train_tf,
-            main_test_df=main_test_df,
-            out_dir=out_dir,
-            kg_labels_file=kg_labels_file,
-            best_out_file=best_out_file,
-            with_annotation=with_annotation,
-            training_df=train_df,
-            testing_df=test_df,
-            validation_df=validation_df,
-            filter_training=filter_training,
-            predict_all=predict_all,
-            all_out_file=all_out_file,
+
+    predict_diff_dataset(
+        model=pipline_results.model,
+        model_name=model_name,
+        training_tf=train_tf,
+        main_test_df=main_test_df,
+        out_dir=out_dir,
+        kg_labels_file=kg_labels_file,
+        best_out_file=best_out_file,
+        with_annotation=with_annotation,
+        training_df=train_df,
+        testing_df=test_df,
+        validation_df=validation_df,
+        filter_training=filter_training,
+        predict_all=predict_all,
+        all_out_file=all_out_file,
+    )
+    # scoring
+    if with_scoring:
+        best_test_pred = pd.read_csv(f"{out_dir}/{model_name}/{best_out_file}")
+        percent_true = percents_true_prdictions(best_test_pred)
+        mean, hits = mean_hits(
+            f"{out_dir}/{model_name}/{model_name}_best_model_results/results.json"
         )
-    else:
-        print("There is no test_subsplits to perform predictions.")
+        roc = multiclass_score_func(best_test_pred, main_test_df)
 
     # specif types testing set predictions
     if test_specific_type:
@@ -111,16 +119,64 @@ def kg_embedding(
             main_test_df=sp_test_df,
             out_dir=out_dir,
             kg_labels_file=kg_labels_file,
-            best_out_file=f'{source_type}_{target_type}_{best_out_file}',
+            best_out_file=f"{source_type}_{target_type}_{best_out_file}",
             with_annotation=with_annotation,
             training_df=train_df,
             testing_df=test_df,
             validation_df=validation_df,
             filter_training=filter_training,
             predict_all=predict_all,
-            all_out_file=f'{source_type}_{target_type}_{all_out_file}',
+            all_out_file=f"{source_type}_{target_type}_{all_out_file}",
         )
-    return pipline_results
+        if with_scoring:
+            best_test_pred_sp_type = pd.read_csv(
+                f"{out_dir}/{model_name}/{source_type}_{target_type}_{best_out_file}"
+            )
+            percent_true_sp_type = percents_true_prdictions(best_test_pred_sp_type)
+
+            roc_sp_type = multiclass_score_func(best_test_pred_sp_type, sp_test_df)
+            results_dict = {
+                "Perctage of true predictions for all reltions": percent_true,
+                "roc_auc for all realtions": roc,
+                "adjusted_arithmetic_mean_rank": mean,
+                "hits_at_10": hits,
+                f"Perctage of true predictions for {source_type}-{target_type} reltions": percent_true_sp_type,
+                f"roc-auc for {source_type}-{target_type} reltions": roc_sp_type,
+            }
+            json.dump(
+                results_dict,
+                open(
+                    f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
+                    "w",
+                ),
+                indent=4,
+            )
+
+            return (
+                pipline_results,
+                percent_true,
+                mean,
+                hits,
+                roc,
+                percent_true_sp_type,
+                roc_sp_type,
+            )
+
+    results_dict = {
+        "Perctage of true predictions for all reltions": percent_true,
+        "roc_auc for all realtions": roc,
+        "adjusted_arithmetic_mean_rank": mean,
+        "hits_at_10": hits,
+    }
+    json.dump(
+        results_dict,
+        open(
+            f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
+            "w",
+        ),
+        indent=4,
+    )
+    return pipline_results, percent_true, mean, hits, roc
 
 
 def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
