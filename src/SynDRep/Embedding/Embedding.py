@@ -23,7 +23,6 @@ def compare_embeddings(
     models_names: list,
     kg_file,
     out_dir,
-    model_name,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
     subsplits=True,
