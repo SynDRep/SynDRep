@@ -89,7 +89,7 @@ def compare_embeddings(
             path=f"{out_dir}/{metric}.jpg",
         )
 
-
+#TODO add get_embeddings function
 def kg_embedding(
     kg_file,
     out_dir,
