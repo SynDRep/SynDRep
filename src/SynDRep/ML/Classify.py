@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""classifiers for ML approaches of SynDRep.  modified from clep (https://github.com/hybrid-kg/clep) """
+"""classifiers for ML approaches of SynDRep.  modified from CLEP (https://github.com/hybrid-kg/clep) """
 
 
 import json
@@ -35,14 +35,70 @@ from skopt.space import Real, Categorical, Integer
 
 from Scoring import multiclass_score_func, draw_graph
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.WARN)
+# logging.basicConfig(
+#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+
+
+def classify_data(
+    data_for_training: pd.DataFrame,
+    data_for_prediction: pd.DataFrame,
+    optimizer_name: str,
+    model_names: List[str],
+    out_dir: str,
+    validation_cv: int,
+    scoring_metrics: List[str],
+    rand_labels: bool,
+    *args,
+):
+    # run cross-validation and train the model
+    
+    trained_model, scaler,columns, best_model_name = compare_models(
+        model_names=model_names,
+        out_dir=out_dir,
+        data=data_for_training,
+        optimizer_name=optimizer_name,
+        validation_cv=validation_cv,
+        scoring_metrics=scoring_metrics,
+        rand_labels=rand_labels,
+        *args,
+    )
+    
+    #predict on prediction set
+    pred = predict(
+        model=trained_model,
+        data_for_prediction=data_for_prediction,
+        scaler=scaler,
+        columns=columns,
+        out_dir=out_dir,
+        model_name=best_model_name,
+    )
+    return pred
+
+def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
+    
+    data_df = data_for_prediction[columns]
+    if scaler is not None:
+        data_df = scaler.transform(data_df)
+    
+
+    ids = data_for_prediction[["Drug1_CID","Drug2_CID", "Drug1_name", "Drug2_name"]]
+    
+    predicted_probabilities = model.predict_proba(data_df)
+
+    # Create a DataFrame with predictions and their probabilities for both classes
+    result_df = pd.DataFrame({
+        'Prediction': model.predict(data_df),  # Replace with appropriate prediction method for your task
+        'Probability_Positive_Class': predicted_probabilities[:, 1],
+        'Probability_Negative_Class': predicted_probabilities[:, 0]
+    })
+    pred = pd.concat([ids, result_df], axis=1)
+    pred.to_csv(f'{out_dir}/{model_name}/all_drug_predictions.csv', index= False) 
+    return pred
 
 def compare_models(model_names: List[str],
     data: pd.DataFrame,
-    model_name: str,
     optimizer_name: str,
     out_dir: str,
     validation_cv: int,
@@ -51,10 +107,12 @@ def compare_models(model_names: List[str],
     *args,
     ) -> Dict[int, Any]:
     # get feature names
-    columns = data.drop(columns='label').columns
+    columns = data.copy().drop(columns='label').columns
     
     # run cross-validation
+    print('running cross_validation...')
     for model_name in model_names:
+        print (f'working on {model_name}')
         run_cross_validation(
             data=data,
             model_name=model_name,
@@ -66,11 +124,14 @@ def compare_models(model_names: List[str],
         )
     
     # load cross-validation results
+    metrics_dict = {}
     for metric in scoring_metrics:
         models_mean =draw_graph(model_names= model_names, out_dir=out_dir, metric=metric)
-        logger.info(f"Mean {metric}: {models_mean}")
-    best_model = max(models_mean, key=models_mean.get)
-    logger.info(f"Best model: {best_model}")
+        metrics_dict[metric]=models_mean
+        #logger.info(f"Mean {metric}: {models_mean}")
+    json.dump(metrics_dict, open(f"{out_dir}/models_mean_metrics.json",'w'), indent=4)
+    best_model = max(metrics_dict['roc_auc'], key=models_mean.get)
+    #logger.info(f"Best model: {best_model}")
     
     # train the best model on the whole dataset
     trained_model, scaler = train_model(
@@ -81,7 +142,7 @@ def compare_models(model_names: List[str],
         validation_cv=validation_cv,
         rand_labels=rand_labels,
     )
-    return trained_model, scaler,columns
+    return trained_model, scaler,columns,best_model
     
     
 
@@ -100,9 +161,10 @@ def train_model(
     )
 
     # Separate embeddings from labels in data
-    labels = data["label"].values
+    data_df = data.copy()
+    labels = data_df["label"].values
     scaler = MinMaxScaler()
-    data = scaler.fit_transform(data.drop(columns="label"))
+    data_df = scaler.fit_transform(data_df.drop(columns="label"))
 
     if rand_labels:
         np.random.shuffle(labels)
@@ -120,7 +182,7 @@ def train_model(
         optimizer = get_optimizer(
             optimizer_name, model, model_name, optimizer_cv, "roc_auc"
         )
-    optimizer.fit(data, labels)
+    optimizer.fit(data_df, labels)
     best_model = optimizer.best_estimator_
 
     # save the best model and scaler
@@ -156,9 +218,10 @@ def run_cross_validation(
     )
 
     # Separate embeddings from labels in data
-    labels = data["label"].values
+    data_df = data.copy()
+    labels = data_df["label"].values
     scaler = MinMaxScaler()
-    data = scaler.fit_transform(data.drop(columns="label"))
+    data_df = scaler.fit_transform(data_df.drop(columns="label"))
 
     if rand_labels:
         np.random.shuffle(labels)
@@ -172,10 +235,10 @@ def run_cross_validation(
         )
 
         # Run cross validation over the given model for multiclass classification
-        logger.debug("Doing multiclass classification")
+        #logger.debug("Doing multiclass classification")
         cv_results = _do_multiclass_classification(
             estimator=optimizer,
-            x=data,
+            x=data_df,
             y=labels,
             cv=validation_cv,
             scoring=scoring_metrics,
@@ -188,10 +251,10 @@ def run_cross_validation(
         )
 
         # Run cross validation over the given model
-        logger.debug("Running binary cross validation")
+        #logger.debug("Running binary cross validation")
         cv_results = model_selection.cross_validate(
             estimator=optimizer,
-            X=data,
+            X=data_df,
             y=labels,
             cv=model_selection.StratifiedKFold(
                 n_splits=validation_cv, shuffle=True),
@@ -222,20 +285,20 @@ def _do_multiclass_classification(
     :param return_estimator: Boolean value to indicate if the estimator used should returned in the results
     """
     unique_labels = list(np.unique(y))
-    logger.debug(f"unique_labels:\n {unique_labels}")
+    #logger.debug(f"unique_labels:\n {unique_labels}")
 
     n_classes = len(unique_labels)
-    logger.debug(f"n_classes:\n {n_classes}")
+    #logger.debug(f"n_classes:\n {n_classes}")
 
     cv_results = defaultdict(list)
 
     # Make k-fold splits for cross validations
     k_fold = model_selection.StratifiedKFold(n_splits=cv, shuffle=True)
-    logger.debug(f"k_fold Classifier:\n {k_fold}")
+    #logger.debug(f"k_fold Classifier:\n {k_fold}")
 
     # Split the data and the labels
     for run_num, (train_indexes, test_indexes) in enumerate(k_fold.split(x, y)):
-        logger.debug(f"\nCurrent Run number: {run_num}\n")
+        #logger.debug(f"\nCurrent Run number: {run_num}\n")
         # Make a One-Hot encoding of the classes
         y = preprocessing.label_binarize(y, classes=unique_labels)
 
@@ -249,23 +312,19 @@ def _do_multiclass_classification(
         )
         y_train = np.asarray([y[train_index] for train_index in train_indexes])
         y_test = np.asarray([y[test_index] for test_index in test_indexes])
-        logger.debug(
-            f"Counter y_train:\n {
-                np.unique(y_train, axis=0, return_counts=True)} \nCounter y_test: \n"
-            f"{np.unique(y_test, axis=0, return_counts=True)}"
-        )
+        #logger.debug(f"Counter y_train:\n{np.unique(y_train, axis=0, return_counts=True)}\n Counter y_test:\n{np.unique(y_test, axis=0, return_counts=True)}")
 
         # Make a multiclass classifier for the given estimator
         clf = multiclass.OneVsRestClassifier(estimator)
-        logger.debug(f"clf:\n {clf}")
+        #logger.debug(f"clf:\n {clf}")
 
         # Fit and predict using the multiclass classifier
         y_fit = clf.fit(x_train, y_train)
-        logger.debug(f"y_fit:\n {y_fit}")
+        #logger.debug(f"y_fit:\n {y_fit}")
 
         y_pred = y_fit.predict(x_test)
-        logger.debug(f"y_pred:\n {y_pred}\n\n")
-        logger.debug(f"y_true:\n {y_test}\n\n")
+        #logger.debug(f"y_pred:\n {y_pred}\n\n")
+        #logger.debug(f"y_true:\n {y_test}\n\n")
 
         if return_estimator:
             cv_results["estimator"].append(clf.estimator)
@@ -335,7 +394,7 @@ def _do_multiclass_classification(
                     "The passed metric has not been defined in the code for multiclass classification."
                 )
                 sys.exit()
-        logger.debug(f"cv_results:\n {cv_results}")
+        #logger.debug(f"cv_results:\n {cv_results}")
 
     return cv_results
 
@@ -483,8 +542,7 @@ def get_param_grid(model_name):
 
     else:
         raise ValueError(
-            f'The entered model "{
-                model_name}", was not found. Please check that you have chosen a valid model.'
+            f'The entered model "{model_name}", was not found. Please check that you have chosen a valid model.'
         )
 
     return param_grid
@@ -517,8 +575,7 @@ def get_param_dist(model_name):
 
     else:
         raise ValueError(
-            f'The entered model "{
-                model_name}", was not found. Please check that you have chosen a valid model.'
+            f'The entered model "{model_name}", was not found. Please check that you have chosen a valid model.'
         )
 
     return param_dist
@@ -553,8 +610,7 @@ def get_param_space(model_name):
 
     else:
         raise ValueError(
-            f'The entered model "{
-                model_name}", was not found. Please check that you have chosen a valid model.'
+            f'The entered model "{model_name}", was not found. Please check that you have chosen a valid model.'
         )
 
     return param_space

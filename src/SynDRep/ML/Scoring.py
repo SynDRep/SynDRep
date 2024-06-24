@@ -58,6 +58,6 @@ def draw_graph(model_names, out_dir, metric="roc_auc"):
 
     plt.title("Boxplot for different ML Models", fontweight="bold")
     plt.xlabel("Models", fontweight="bold")
-    plt.ylabel("ROC-AUC", fontweight="bold")
-    plt.savefig(f"{out_dir}/ROC_AUC_boxplot.png")
+    plt.ylabel(f"{metric}".upper(), fontweight="bold")
+    plt.savefig(f"{out_dir}/{metric}.png")
     return models_mean
