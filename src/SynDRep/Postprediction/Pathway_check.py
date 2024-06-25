@@ -342,15 +342,11 @@ def get_pathways_to_all_shared_diseases(
 
 
 def get_drugs_for_disease(disease: str) -> set:
-    """
-    This function retrieves a set of over-the-counter (OTC) drugs approved for a specific disease.
-    It uses the OpenFDA API to search for drug labels with the specified disease in the indications and usage field.
+    """This function retrieves a set of drugs approved for a specific disease from the OpenFDA API.
 
-    Parameters:
-    disease (str): The disease for which to retrieve drugs.
 
-    Returns:
-    set: A set of drugs approved for the specified disease.
+    :param disease: The disease for which to retrieve approved drugs.
+    :return: A set of drugs approved for the specified disease.
     """
 
     # Define the base URL for the OpenFDA API
