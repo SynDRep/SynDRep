@@ -1,12 +1,44 @@
 # -*- coding: utf-8 -*-
-
 """wrapper for prediction functions"""
+import gzip
 
 import pandas as pd
-
-from tqdm import tqdm
+import torch
 from pykeen.predict import predict_target
+from pykeen.triples import TriplesFactory
+from tqdm import tqdm
 
+def predict_with_model(
+    model_name: str,
+    out_dir,
+    subsplits,
+    drug1,
+    drug2,
+):
+    model = torch.load(f"{out_dir}/{model_name}/{model_name}_best_model_results/trained_model.pkl")
+    
+    entity_to_id = gz_to_dict(f'{out_dir}/{model_name}/{model_name}_best_model_results/training_triples/entity_to_id.tsv.gz')
+    relation_to_id = gz_to_dict(f'{out_dir}/{model_name}/{model_name}_best_model_results/training_triples/relation_to_id.tsv.gz')
+
+    if subsplits:
+        tf = TriplesFactory.from_path(f'{out_dir}/train_data_ss.tsv',
+                                        entity_to_id=entity_to_id,
+                                        relation_to_id=relation_to_id
+                                        )
+    else:
+        tf = TriplesFactory.from_path(f'{out_dir}/train_data.tsv',
+                                        entity_to_id=entity_to_id,
+                                        relation_to_id=relation_to_id
+                                        )
+    pred = predict_target(
+        model=model,
+        head=str(drug1),
+        tail=str(drug2),
+        triples_factory=tf
+    ).df
+    
+    return pred
+    
 
 def predict_diff_dataset(
     model,
@@ -135,3 +167,18 @@ def df_checker(query_df, reference_df, set_name):
         if len(result_df["source"].tolist()) > 0:
             query_df.loc[i, f"in_{set_name}"] = True
     return query_df
+
+def gz_to_dict(path):
+    """A function to get the dictionary out of gz file
+
+    Args:
+        path (str): path to gz file
+
+    Returns:
+        dict: a dictionary of the content of the tsv inside gz
+    """
+    with gzip.open(path, "rt", encoding="utf-8") as gz_file:
+        df = pd.read_csv(gz_file, delimiter="\t")
+    df["label"] = df["label"].astype(str)
+    dct = dict(zip(df["label"], df["id"]))
+    return dct

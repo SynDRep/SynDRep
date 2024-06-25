@@ -1,22 +1,122 @@
 # -*- coding: utf-8 -*-
-
 """do the embedding of enriched KG"""
-
-
 import json
 import pathlib
-import pandas as pd
+from itertools import combinations
 
-from pykeen.triples import TriplesFactory
+import pandas as pd
+from Prediction import predict_diff_dataset
+from Prediction import predict_with_model
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
-from Prediction import predict_diff_dataset
-from Scoring import (
-    mean_hits,
-    percents_true_prdictions,
-    multiclass_score_func,
-    draw_graph,
-)
+from pykeen.triples import TriplesFactory
+from Scoring import draw_graph
+from Scoring import mean_hits
+from Scoring import multiclass_score_func
+from Scoring import percents_true_prdictions
+from tqdm import tqdm
+
+
+def embed_data(
+    drugs_csv,
+    models_names: list,
+    kg_file,
+    out_dir,
+    best_out_file: str = "predictions_best.csv",
+    config_path=None,
+    subsplits=True,
+    test_specific_type=True,
+    kg_labels_file=None,
+    source_type="Drug",
+    target_type="Drug",
+    predict_all_test=False,
+    all_out_file: str = None,
+    with_annotation=True,
+    filter_training=False,
+    with_scoring=True,
+    pred_reverse=True,
+    sorted_predictions=True,
+    all_drug_drug_score=False,
+):
+    best_model = compare_embeddings(
+        models_names=models_names,
+        kg_file=kg_file,
+        out_dir=out_dir,
+        best_out_file=best_out_file,
+        config_path=config_path,
+        subsplits=subsplits,
+        test_specific_type=test_specific_type,
+        kg_labels_file=kg_labels_file,
+        source_type=source_type,
+        target_type=target_type,
+        predict_all=predict_all_test,
+        all_out_file=all_out_file,
+        with_annotation=with_annotation,
+        filter_training=filter_training,
+        with_scoring=with_scoring,
+    )
+
+    drugs = pd.read_csv(drugs_csv)["Drug_name"].tolist()
+    combs = list(combinations(drugs, 2))
+    df_list_all = []
+    df_list_best = []
+    
+    for comb in tqdm(combs):
+        head, tail = comb
+        pred_df = predict_with_model(
+            model_name=best_model,
+            out_dir=out_dir,
+            subsplits=subsplits,
+            drug1=head,
+            drug2=tail,
+        )
+
+        # add to list of data frames
+        df_list_all.append(pred_df)
+        # add the best 1 to another df
+        pred_df = pred_df.head(1)
+        df_list_best.append(pred_df)
+
+        if pred_reverse:
+            reverse_pred_df = predict_with_model(
+                model_name=best_model,
+                out_dir=out_dir,
+                subsplits=subsplits,
+                drug1=tail,
+                drug2=head,
+            )
+
+            # add to list of data frames
+            df_list_all.append(reverse_pred_df)
+            # add the best 1 to another df
+            reverse_pred_df = reverse_pred_df.head(1)
+            df_list_best.append(reverse_pred_df)
+
+    df_all = pd.concat(df_list_all, ignore_index=True).reset_index(drop=True)
+    df_best = pd.concat(df_list_best, ignore_index=True).reset_index(drop=True)
+
+    if sorted_predictions:
+        df_best.sort_values(by=["score"], ascending=False, inplace=True)
+
+    for df in [df_all, df_best]:
+        df.rename(
+            columns={
+                "head_label": "Drug1_name",
+                "tail_label": "Drug2_name",
+            },
+            inplace=True,
+        )
+    if all_drug_drug_score:
+        df_all.to_csv(
+            f"{out_dir}/{best_model}/{best_model}_drug_drug_predictions_all.csv",
+            index=False,
+    )
+    df_best.to_csv(
+        f"{out_dir}/{best_model}/{best_model}_drug_drug_predictions_best.csv",
+        index=False,
+    )
+
+    return df_all, df_best
 
 
 def compare_embeddings(
@@ -63,6 +163,7 @@ def compare_embeddings(
 
     if test_specific_type:
         columns = [
+            "model",
             "Perctage of true predictions for all reltions",
             "adjusted_arithmetic_mean_rank",
             "hits_at_10",
@@ -72,12 +173,25 @@ def compare_embeddings(
         ]
     else:
         columns = [
+            "model",
             "Perctage of true predictions for all reltions",
             "adjusted_arithmetic_mean_rank",
             "hits_at_10",
             "roc-auc for all realtions",
         ]
     results_df = pd.DataFrame(results, columns=columns)
+    results_df.to_csv(f"{out_dir}/Models_results.csv", index=False)
+    if test_specific_type:
+        max_score_row = df.loc[
+            df[
+                f"Perctage of true predictions for {source_type}-{target_type} reltions"
+            ].idxmax()
+        ]
+    else:
+        max_score_row = df.loc[
+            df["Perctage of true predictions for all reltions"].idxmax()
+        ]
+    best_model = max_score_row["model"]
     df = results_df.reindex(models_names)
     for metric in columns:
         df = df[metric]
@@ -88,8 +202,9 @@ def compare_embeddings(
             ylabel=metric.replace("_", " "),
             path=f"{out_dir}/{metric}.jpg",
         )
+    return best_model
 
-#TODO add get_embeddings function
+
 def kg_embedding(
     kg_file,
     out_dir,
@@ -146,6 +261,7 @@ def kg_embedding(
         config_file = config_path
     else:
         config_file = f"{model_name}_config_hpo.json"
+    print(main_test_df.head())
     # run hpo
     run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir)
 
@@ -449,11 +565,12 @@ def generate_test_specific_type(
 
     test_df["source"] = test_df["source"].astype(str)
     test_df["target"] = test_df["target"].astype(str)
-    test_df["source_type"] = test_df["source"].apply(labels_dict.get)
-    test_df["target_type"] = test_df["target"].apply(labels_dict.get)
-    filtered_df = test_df[
-        (test_df["source_type"] == source_type)
-        & (test_df["target_type"] == target_type)
+    new_test_df = test_df.copy()
+    new_test_df["source_type"] = new_test_df["source"].apply(labels_dict.get)
+    new_test_df["target_type"] = new_test_df["target"].apply(labels_dict.get)
+    filtered_df = new_test_df[
+        (new_test_df["source_type"] == source_type)
+        & (new_test_df["target_type"] == target_type)
     ]
     filtered_df = filtered_df[["source", "relation", "target"]]
     filtered_df.to_csv(
