@@ -6,7 +6,12 @@ import networkx as nx
 import requests
 
 
-def generate_graph(kg_file: str):
+def generate_graph(kg_file: str) -> nx.DiGraph:
+    """This function reads a knowledge graph file and generates a directed graph using NetworkX.
+
+    :param kg_file: The path to the knowledge graph file. The file should contain lines in the format: source<TAB>relation<TAB>target.
+    :return: A directed graph representing the knowledge graph. Each edge has a 'label' attribute representing the relation between the nodes.
+    """
     with open(kg_file, "r") as f:
         lines = f.readlines()
 
@@ -21,14 +26,23 @@ def generate_graph(kg_file: str):
     return G
 
 
-def get_nodes_within_n_dist(Graph, source_node, n):
+def get_nodes_within_n_dist(Graph: nx.DiGraph, source_node: str, n: int) -> dict:
+    """This function computes the shortest path lengths from a given source node to all other nodes in the graph,
+    and then extracts the nodes within a maximum of n hops.
+
+
+    :param Graph: The directed graph to analyze.
+    :param source_node: The source node from which to compute shortest path lengths.
+    :param n: The maximum number of hops to consider.
+    :return: A dictionary where the keys are the nodes within n hops of the source node, and the values are the distances to those nodes.
+    """
 
     # Compute shortest path lengths from the source node
     shortest_path_lengths = nx.single_source_shortest_path_length(
         Graph, source_node, cutoff=n
     )
 
-    # Extract nodes within a maximum of 3 hops
+    # Extract nodes within a maximum of n hops
     nodes_within_n_dist = {
         node: distance
         for node, distance in shortest_path_lengths.items()
@@ -36,13 +50,6 @@ def get_nodes_within_n_dist(Graph, source_node, n):
     }
 
     return nodes_within_n_dist
-
-
-def get_id_or_label(query, labels_dict, required_output):
-    if required_output == "name":
-        return labels_dict.get(query)
-    elif required_output == "ID":
-        return [k for k, v in labels_dict.items() if v == query][0]
 
 
 def get_shared_neighbors_within_n_dist(Graph, node1, node2, n):
