@@ -357,7 +357,6 @@ def get_drugs_for_disease(disease: str) -> set:
     # Create a query to search for drugs approved for the specified disease
     drugs = []
     for i in range(0, skip + 1, 1000):
-        print(i)
         query = f"?search=indications_and_usage:{disease}&limit=1000&skip={i}"
 
         # Make the API request
