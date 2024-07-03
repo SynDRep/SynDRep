@@ -10,15 +10,15 @@ from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 
 
-def percents_true_prdictions(df):
+def percents_true_predictions(df):
 
-    trues = []
-    percents = {}
-
-    t_no = df["in_testing"].value_counts().get(True, 0) + df[
-        "in_validation"
-    ].value_counts().get(True, 0)
-    trues.append(t_no)
+    
+    in_testing_count = df["in_testing"].value_counts().get(True, 0)
+    in_training_count = df["in_training"].value_counts().get(True, 0)
+    in_validation_count = df["in_validation"].value_counts().get(True,0)
+    in_main_test_count = df["in_main_test"].value_counts().get(True,0) if 'in_main_test' in df.columns else 0
+    t_no = in_testing_count + in_training_count + in_validation_count + in_main_test_count
+    
     percent = t_no * 100 / len(df)
 
     return percent
@@ -61,10 +61,10 @@ def mean_hits(results_json):
     return mean, hits
 
 
-def draw_graph(df, models, tilte, xlabel, ylabel, path):
+def draw_graph(df, title, xlabel, ylabel, path):
     
     df.plot(kind="bar", figsize=(10, 6))
-    plt.title(tilte, fontweight="bold")
+    plt.title(title, fontweight="bold")
     plt.xlabel(xlabel, fontweight="bold")
     plt.ylabel(ylabel, fontweight="bold")
     plt.savefig(path)

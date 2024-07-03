@@ -51,6 +51,7 @@ def predict_diff_dataset(
     predict_all=False,
     all_out_file: str = None,
     with_annotation=False,
+    subsplits=False,
     training_df=None,
     testing_df=None,
     validation_df=None,
@@ -87,7 +88,7 @@ def predict_diff_dataset(
     df_all = pd.concat(df_list_all, ignore_index=True)
     df_best = pd.concat(df_list_best, ignore_index=True)
     if with_annotation:
-        if not all([training_df, testing_df, validation_df]):
+        if any ([training_df is None, testing_df is None, validation_df is None]):
             raise Exception(
                 " not all paths for training, testing, and validation have been provided"
             )
@@ -99,6 +100,8 @@ def predict_diff_dataset(
                 training_df=training_df,
                 testing_df=testing_df,
                 validation_df=validation_df,
+                subsplits=subsplits,
+                main_test_df=main_test_df
             )
             if filter_training:
                 annot_dict[x] = annot_dict[x][
@@ -128,7 +131,7 @@ def predict_diff_dataset(
         return df_all, df_best
 
 
-def pred_manipulation(df, training_df, testing_df, validation_df):
+def pred_manipulation(df, training_df, testing_df, validation_df, subsplits=None, main_test_df=None):
 
     columns = ["source", "relation", "target"]
 
@@ -139,6 +142,9 @@ def pred_manipulation(df, training_df, testing_df, validation_df):
     df_training = df_checker(df, training_df, "training")
     df_testing = df_checker(df_training, testing_df, "testing")
     df_final = df_checker(df_testing, validation_df, "validation")
+    
+    if subsplits is not None:
+        df_final = df_checker(df_final, main_test_df, "main_test")
 
     return df_final
 

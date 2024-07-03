@@ -11,20 +11,20 @@ import json
 
 
 def generate_enriched_kg(
-    kg_tsv: str,
+    kg_file: str,
     combos_folder: str,
     kg_drug_file: str,
     out_dir: str,
-    name_cid_dict: dict = {},
-    Scoring_method: str = "ZIP",
+    name_cid_dict: dict,
+    scoring_method: str = "ZIP",
 ):
     """Produces an enriched KG with drug-drug combinations
 
-    :param kg_tsv: a path to tsv file of KG.
+    :param kg_file: a path to tsv file of KG.
     :param combos_folder: a path to the folder containing the drug combinations.
     :param kg_drug_file: a path to the csv file of KG drugs.
     :param out_dir: a path to the desired output directory.
-    :param name_cid_dict: a dictionary of drug names to cid, defaults to {}
+    :param name_cid_dict: a dictionary of drug names to cid
     :param Scoring_method: a scoring method of the combination, defaults to "ZIP"
     :return: a df of enriched KG
     """
@@ -32,11 +32,11 @@ def generate_enriched_kg(
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     _, final_combos_with_relations = prepare_combinations(
-        combos_folder, kg_drug_file, out_dir, name_cid_dict, Scoring_method
+        combos_folder, kg_drug_file, out_dir, name_cid_dict, scoring_method
     )
     combos_df = final_combos_with_relations[["Source_label", ":TYPE", "Target_label"]]
     kg_df = pd.read_table(
-        kg_tsv, header=None, names=["Source_label", ":TYPE", "Target_label"]
+        kg_file, header=None, names=["Source_label", ":TYPE", "Target_label"]
     )
 
     enriched_kg = pd.concat([combos_df, kg_df], ignore_index=False)
@@ -50,8 +50,8 @@ def prepare_combinations(
     combos_folder: str,
     kg_drug_file: str,
     out_dir: str,
-    name_cid_dict: dict = {},
-    Scoring_method: str = "ZIP",
+    name_cid_dict: dict,
+    scoring_method: str = "ZIP",
 ):
     """Prepare the drug combinations and produce the ones that can be added to KG
 
@@ -78,7 +78,7 @@ def prepare_combinations(
         folder_path=combos_folder,
         name_cid_dict=name_cid_dict,
         output_path=out_dir,
-        Scoring_method=Scoring_method,
+        scoring_method=scoring_method,
     )
 
     # make a dictionary for drugs in KG
@@ -116,7 +116,7 @@ def prepare_combinations(
     drug1_list = in_kg["Drug1_CID"].tolist()
     drug2_list = in_kg["Drug2_CID"].tolist()
     combos_kg_drugs = set(drug1_list + drug2_list)
-    in_kg[":TYPE"] = in_kg[Scoring_method].apply(synergy_detection)
+    in_kg[":TYPE"] = in_kg[scoring_method].apply(synergy_detection)
 
     with open(f"{out_dir}/results.txt", "w") as f:
         f.write(f"Total combinations: {n} \n")
@@ -195,7 +195,7 @@ def prepare_combinations(
 
 
 def get_merged_combinations(
-    folder_path, output_path, name_cid_dict, Scoring_method="ZIP"
+    folder_path, output_path, name_cid_dict, scoring_method="ZIP"
 ):
     """_summary_
 
@@ -223,7 +223,7 @@ def get_merged_combinations(
         .reset_index()
     )
     # Apply the function to check if all values are positive, negative, or mixed
-    combo_score["Value_Check"] = combo_score[Scoring_method].apply(check_pos_neg)
+    combo_score["Value_Check"] = combo_score[scoring_method].apply(check_pos_neg)
 
     # get the mean of values
     combo_score = combo_score.rename(

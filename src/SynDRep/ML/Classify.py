@@ -33,7 +33,7 @@ from xgboost import XGBClassifier
 from scipy.stats import uniform, loguniform
 from skopt.space import Real, Categorical, Integer
 
-from Scoring import multiclass_score_func, draw_graph
+from ML.Scoring import multiclass_score_func, draw_graph
 
 # logger = logging.getLogger(__name__)
 # logger.setLevel(logging.WARN)
@@ -94,6 +94,17 @@ def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
         'Probability_Negative_Class': predicted_probabilities[:, 0]
     })
     pred = pd.concat([ids, result_df], axis=1)
+    
+    
+    # sort by probability
+    pred = pred.sort_values(by=["Probability_Positive_Class"], ascending=False)
+    relation_dict = {1:'HAS_SYNERGISM_WITH',
+                0: 'HAS_ANTAGONISM_WITH'
+                }
+
+    pred["relation_label"] = pred["Prediction"].apply(relation_dict.get)
+    
+    #Export to csv
     pred.to_csv(f'{out_dir}/{model_name}/all_drug_predictions.csv', index= False) 
     return pred
 

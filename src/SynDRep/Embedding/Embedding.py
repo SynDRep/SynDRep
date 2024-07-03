@@ -5,19 +5,20 @@ import pathlib
 from itertools import combinations
 
 import pandas as pd
-from Prediction import predict_diff_dataset
-from Prediction import predict_with_model
+import torch
+from Embedding.Prediction import predict_diff_dataset
+from Embedding.Prediction import predict_with_model
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from pykeen.triples import TriplesFactory
-from Scoring import draw_graph
-from Scoring import mean_hits
-from Scoring import multiclass_score_func
-from Scoring import percents_true_prdictions
+from Embedding.Scoring import draw_graph
+from Embedding.Scoring import mean_hits
+from Embedding.Scoring import multiclass_score_func
+from Embedding.Scoring import percents_true_predictions
 from tqdm import tqdm
 
 
-def embed_data(
+def embed_and_predict(
     drugs_csv,
     models_names: list,
     kg_file,
@@ -34,6 +35,7 @@ def embed_data(
     with_annotation=True,
     filter_training=False,
     with_scoring=True,
+    get_embeddings_data=False,
     pred_reverse=True,
     sorted_predictions=True,
     all_drug_drug_score=False,
@@ -54,6 +56,7 @@ def embed_data(
         with_annotation=with_annotation,
         filter_training=filter_training,
         with_scoring=with_scoring,
+        get_embeddings_data=get_embeddings_data
     )
 
     drugs = pd.read_csv(drugs_csv)["Drug_name"].tolist()
@@ -135,6 +138,7 @@ def compare_embeddings(
     with_annotation=True,
     filter_training=False,
     with_scoring=True,
+    get_embeddings_data=False,
 ):
 
     results = []
@@ -158,38 +162,37 @@ def compare_embeddings(
             with_scoring=with_scoring,
         )
         result = [model_name]
-        result.extend(embedding_results)
+        result.extend(embedding_results[1:])
         results.append(result)
 
     if test_specific_type:
         columns = [
             "model",
-            "Perctage of true predictions for all reltions",
+            "Percentage of true predictions for all relations",
             "adjusted_arithmetic_mean_rank",
             "hits_at_10",
-            "roc_auc for all realtions",
-            f"Perctage of true predictions for {source_type}-{target_type} reltions",
-            f"roc-auc for {source_type}-{target_type} reltions",
+            "roc_auc for all relations",
+            f"Percentage of true predictions for {source_type}-{target_type} relations",
         ]
     else:
         columns = [
             "model",
-            "Perctage of true predictions for all reltions",
+            "Percentage of true predictions for all relations",
             "adjusted_arithmetic_mean_rank",
             "hits_at_10",
-            "roc-auc for all realtions",
+            "roc-auc for all relations",
         ]
     results_df = pd.DataFrame(results, columns=columns)
     results_df.to_csv(f"{out_dir}/Models_results.csv", index=False)
     if test_specific_type:
-        max_score_row = df.loc[
-            df[
-                f"Perctage of true predictions for {source_type}-{target_type} reltions"
+        max_score_row = results_df.loc[
+            results_df[
+                f"Percentage of true predictions for {source_type}-{target_type} relations"
             ].idxmax()
         ]
     else:
-        max_score_row = df.loc[
-            df["Perctage of true predictions for all reltions"].idxmax()
+        max_score_row = results_df.loc[
+            results_df["Percentage of true predictions for all relations"].idxmax()
         ]
     best_model = max_score_row["model"]
     df = results_df.reindex(models_names)
@@ -202,6 +205,16 @@ def compare_embeddings(
             ylabel=metric.replace("_", " "),
             path=f"{out_dir}/{metric}.jpg",
         )
+    
+    if get_embeddings_data:
+        get_embeddings(
+            model=torch.load(f"{out_dir}/{best_model}/{best_model}_best_model_results/trained_model.pkl"),
+            training_tf=embedding_results[0],
+            kg_labels_file=kg_labels_file,
+            output_all=f'{out_dir}/{best_model}/{best_model}_embeddings_all.csv',
+            output_drugs=f'{out_dir}/{best_model}/{best_model}_embeddings_drugs.csv',
+        )
+        
     return best_model
 
 
@@ -261,19 +274,19 @@ def kg_embedding(
         config_file = config_path
     else:
         config_file = f"{model_name}_config_hpo.json"
-    print(main_test_df.head())
+    
     # run hpo
     run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir)
 
     # run pipeline
-    pipline_results = run_pipeline(
+    pipeline_results = run_pipeline(
         train_tf, test_tf, validation_tf, model_name, out_dir
     )
 
     # prediction
 
     predict_diff_dataset(
-        model=pipline_results.model,
+        model=pipeline_results.model,
         model_name=model_name,
         training_tf=train_tf,
         main_test_df=main_test_df,
@@ -281,6 +294,7 @@ def kg_embedding(
         kg_labels_file=kg_labels_file,
         best_out_file=best_out_file,
         with_annotation=with_annotation,
+        subsplits=subsplits,
         training_df=train_df,
         testing_df=test_df,
         validation_df=validation_df,
@@ -291,7 +305,7 @@ def kg_embedding(
     # scoring
     if with_scoring:
         best_test_pred = pd.read_csv(f"{out_dir}/{model_name}/{best_out_file}")
-        percent_true = percents_true_prdictions(best_test_pred)
+        percent_true = percents_true_predictions(best_test_pred)
         mean, hits = mean_hits(
             f"{out_dir}/{model_name}/{model_name}_best_model_results/results.json"
         )
@@ -305,7 +319,7 @@ def kg_embedding(
             names=["source", "relation", "target"],
         )
         predict_diff_dataset(
-            model=pipline_results.model,
+            model=pipeline_results.model,
             model_name=model_name,
             training_tf=train_tf,
             main_test_df=sp_test_df,
@@ -313,6 +327,7 @@ def kg_embedding(
             kg_labels_file=kg_labels_file,
             best_out_file=f"{source_type}_{target_type}_{best_out_file}",
             with_annotation=with_annotation,
+            subsplits=subsplits,
             training_df=train_df,
             testing_df=test_df,
             validation_df=validation_df,
@@ -324,16 +339,16 @@ def kg_embedding(
             best_test_pred_sp_type = pd.read_csv(
                 f"{out_dir}/{model_name}/{source_type}_{target_type}_{best_out_file}"
             )
-            percent_true_sp_type = percents_true_prdictions(best_test_pred_sp_type)
+            percent_true_sp_type = percents_true_predictions(best_test_pred_sp_type)
 
-            roc_sp_type = multiclass_score_func(best_test_pred_sp_type, sp_test_df)
+            
             results_dict = {
-                "Perctage of true predictions for all reltions": percent_true,
-                "roc_auc for all realtions": roc,
+                "Percentage of true predictions for all relations": percent_true,
+                "roc_auc for all relations": roc,
                 "adjusted_arithmetic_mean_rank": mean,
                 "hits_at_10": hits,
-                f"Perctage of true predictions for {source_type}-{target_type} reltions": percent_true_sp_type,
-                f"roc-auc for {source_type}-{target_type} reltions": roc_sp_type,
+                f"Percentage of true predictions for {source_type}-{target_type} relations": percent_true_sp_type,
+                
             }
             json.dump(
                 results_dict,
@@ -350,12 +365,11 @@ def kg_embedding(
                 hits,
                 roc,
                 percent_true_sp_type,
-                roc_sp_type,
             )
 
     results_dict = {
-        "Perctage of true predictions for all reltions": percent_true,
-        "roc_auc for all realtions": roc,
+        "Percentage of true predictions for all relations": percent_true,
+        "roc_auc for all relations": roc,
         "adjusted_arithmetic_mean_rank": mean,
         "hits_at_10": hits,
     }
@@ -367,7 +381,39 @@ def kg_embedding(
         ),
         indent=4,
     )
-    return (percent_true, mean, hits, roc)
+    return (train_tf, percent_true, mean, hits, roc)
+
+def get_embeddings(
+    model,
+    training_tf,
+    kg_labels_file,
+    output_all,
+    output_drugs
+):
+
+    #get embeddings
+    
+    entity_embeddings_array = model.entity_representations[0](indices=None).detach().cpu().numpy().real
+    entities = training_tf.entity_id_to_label
+    entity_ids = range(model.num_entities)
+    embedding_columns = [f'embedding_{i}' for i in range(entity_embeddings_array.shape[1])]
+    data = {col: entity_embeddings_array[:, i] for i, col in enumerate(embedding_columns)}
+    data['entity'] = [entities[entity_id] for entity_id in entity_ids]
+    embeddings_df = pd.DataFrame(data)
+
+    # adding labels
+    labels = pd.read_table(kg_labels_file, dtype=str)
+    labels_dict = dict (zip(labels['ID'],labels["Type"]))
+    names_dict = dict (zip(labels['ID'],labels["name"]))
+    embeddings_df['entity'] = embeddings_df['entity'].astype(str)
+    embeddings_df ["entity_type"]= embeddings_df['entity'].apply(labels_dict.get)
+    embeddings_df ["entity_name"]= embeddings_df['entity'].apply(names_dict.get)
+    embeddings_df = embeddings_df[['entity', 'entity_type', 'entity_name'] + embedding_columns]
+    embeddings_df.to_csv(output_all, index=False)
+
+    drug_embeddings = embeddings_df[embeddings_df['entity_type'] == "Drug" ]
+    drug_embeddings.to_csv(output_drugs, index=False)
+    return
 
 
 def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
@@ -531,11 +577,11 @@ def get_nodes_and_relations(df):
     return set(df["source"]).union(df["target"]), set(df["relation"])
 
 
-def triples_to_df(tripl_tf):
-    entity_id_to_label = tripl_tf.entity_id_to_label
-    relation_id_to_label = tripl_tf.relation_id_to_label
+def triples_to_df(triple_tf):
+    entity_id_to_label = triple_tf.entity_id_to_label
+    relation_id_to_label = triple_tf.relation_id_to_label
     df = pd.DataFrame(
-        tripl_tf.mapped_triples.numpy(), columns=["source", "relation", "target"]
+        triple_tf.mapped_triples.numpy(), columns=["source", "relation", "target"]
     )
     df["source"] = df["source"].map(entity_id_to_label)
     df["relation"] = df["relation"].map(relation_id_to_label)
