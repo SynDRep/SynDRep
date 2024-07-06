@@ -141,7 +141,7 @@ def compare_models(model_names: List[str],
         metrics_dict[metric]=models_mean
         #logger.info(f"Mean {metric}: {models_mean}")
     json.dump(metrics_dict, open(f"{out_dir}/models_mean_metrics.json",'w'), indent=4)
-    best_model = max(metrics_dict['roc_auc'], key=models_mean.get)
+    best_model = max(metrics_dict['roc_auc'], key=metrics_dict['roc_auc'].get)
     #logger.info(f"Best model: {best_model}")
     
     # train the best model on the whole dataset

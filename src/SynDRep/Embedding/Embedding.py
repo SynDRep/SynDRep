@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 
 def embed_and_predict(
-    drugs_csv,
+    kg_drug_file: str,
     models_names: list,
     kg_file,
     out_dir,
@@ -59,7 +59,7 @@ def embed_and_predict(
         get_embeddings_data=get_embeddings_data
     )
 
-    drugs = pd.read_csv(drugs_csv)["Drug_name"].tolist()
+    drugs = pd.read_csv(kg_drug_file)["Drug_name"].tolist()
     combs = list(combinations(drugs, 2))
     df_list_all = []
     df_list_best = []

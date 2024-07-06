@@ -40,9 +40,9 @@ out_dir_option = click.option(
     required=True,
 )
 
-data_for_trining_option = click.option(
+data_for_training_option = click.option(
     "-t",
-    "--data_for_trining",
+    "--data_for_training",
     type=click.Path(exists=True),
     help="Path to the data_for_trining csv-file.",
     required=True,
@@ -55,7 +55,7 @@ data_for_prediction_option = click.option(
     required=True,
 )
 optimizer_option = click.option(
-    "--optimizer",
+    "--optimizer_name",
     type=click.Choice(["grid_search", "random_search", "bayesian_search"]),
     default="grid_search",
     help="Optimizer to use.",
@@ -64,9 +64,10 @@ optimizer_option = click.option(
 models_option = click.option(
     "-m",
     "--model_names",
-    type=click.Choice(["logistic_regression", "elastic_net", "svm", "random_forest", "gradient_boost"]),
-    default="random_forest",
-    help="Model to use.",
+    multiple=True,
+    type= str,
+    default=["random_forest"],
+    help='Models to use. can provide more than one of "logistic_regression", "elastic_net", "svm", "random_forest", and "gradient_boost"',
     required=False,
 )
 validation_cv_option = click.option(
@@ -80,9 +81,10 @@ validation_cv_option = click.option(
 scoring_metrics_option = click.option(
     "-s",
     "--scoring_metrics",
-    type=click.Choice(["accuracy", "f1_weighted", "f1", "roc_auc", "f1_macro", "f1_micro"]),
-    default="roc_auc",
-    help="Scoring metric to use.",
+    multiple=True,
+    type=str,
+    default=["roc_auc"],
+    help='Scoring metric to use.can provide more than one of "accuracy", "f1_weighted", "f1", "roc_auc", "f1_macro", and "f1_micro"',
     required=False,
 )
 rand_labels_option = click.option(
@@ -144,7 +146,7 @@ def enriched_kg(
 
 
 @main.command()
-@data_for_trining_option
+@data_for_training_option
 @data_for_prediction_option
 @optimizer_option
 @models_option
@@ -153,18 +155,20 @@ def enriched_kg(
 @scoring_metrics_option
 @rand_labels_option
 def classify(
-    data_for_training: pd.DataFrame,
-    data_for_prediction: pd.DataFrame,
-    optimizer_name: str,
-    model_names: List[str],
-    out_dir: str,
-    validation_cv: int,
-    scoring_metrics: List[str],
-    rand_labels: bool,
+    data_for_training,
+    data_for_prediction,
+    optimizer_name,
+    model_names,
+    out_dir,
+    validation_cv,
+    scoring_metrics,
+    rand_labels,
     *args,
     
 ):
     """Classify data"""
+    data_for_training = pd.read_csv(data_for_training)
+    data_for_prediction = pd.read_csv(data_for_prediction)
     classify_data(
         data_for_training=data_for_training,
         data_for_prediction=data_for_prediction,
@@ -176,7 +180,9 @@ def classify(
         rand_labels=rand_labels,
         *args,
     )
-    
+    return
+
+
 
 
 
