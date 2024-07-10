@@ -14,65 +14,59 @@ from ..Combos_prparation.prepare_combos import get_cid
 
 
 def get_physicochem_prop(
-    kg_drug_file: str | Path, radius: int = 6, nBits: int = 2048
+    drug1_name: str,
+    drug2_name: str,
+    radius: int = 6,
+    nBits: int = 2048,
 ) -> pd.DataFrame:
     """
-    This function gets physicochemical properties for drugs from a KG.
+    This function gets physicochemical properties for  two drugs.
 
-    :param kg_drug_file: a path to csv file of KG drug names.
-    :param radius: radius for calculating Morgan fingerprint. Defaults to 6.
-    :param nBits: number of bits for calculating molecular fingerprints. Defaults to 2048.
+    :param drug1_name: The name of the first drug.
+    :param drug2_name: The name of the second drug.
+    :param radius: The radius of the Morgan fingerprint. Defaults to 6.
+    :param nBits: The number of bits in the fingerprint. Defaults to 2048.
 
     :return: A dataframe containing drug names, their physicochemical properties and molecular fingerprints.
     """
 
-    # get drug combinations
-    drug_df = pd.read_csv(
-        kg_drug_file,
+    
+    row = {}
+    drug1_prop_dict = get_properities_dictionary(drug1_name)
+    drug2_prop_dict = get_properities_dictionary(drug2_name)
+    row["Drug1_name"] = drug1_name
+    row["Drug2_name"] = drug2_name
+    row["Drug1_Smiles"] = get_smiles(drug1_name, drug1_prop_dict, drug2_name)
+    row["Drug2_Smiles"] = get_smiles(drug2_name, drug2_prop_dict)
+    row["Drug1_Mwt"] = get_mwt(drug1_name, drug1_prop_dict)
+    row["Drug2_Mwt"] = get_mwt(drug2_name, drug2_prop_dict)
+    row["Drug1_logP"] = get_clogp(drug1_name, drug1_prop_dict)
+    row["Drug2_logP"] = get_clogp(drug2_name, drug2_prop_dict)
+    row["Drug1_TPSA"] = get_tpsa(drug1_name, drug1_prop_dict)
+    row["Drug2_TPSA"] = get_tpsa(drug2_name, drug2_prop_dict)
+    row["Drug1_Hdonor"] = get_hdonor(drug1_name, drug1_prop_dict)
+    row["Drug2_Hdonor"] = get_hdonor(drug2_name, drug2_prop_dict)
+    row["Drug1_Hacceptor"] = get_hacceptor(drug1_name, drug1_prop_dict)
+    row["Drug2_Hacceptor"] = get_hacceptor(drug2_name, drug2_prop_dict)
+    row["Drug1_Rbond"] = get_rbond(drug1_name, drug1_prop_dict)
+    row["Drug2_Rbond"] = get_rbond(drug2_name, drug2_prop_dict)
+    row["Drug1_Morgan_fp"] = generate_morgan_fingerprint(
+        drug1_name, drug1_prop_dict, radius=radius, nBits=nBits
     )
-    drug_list = drug_df["Drug_name"].to_list()
-    drug_combinations = list(combinations(drug_list, 2))
+    row["Drug2_Morgan_fp"] = generate_morgan_fingerprint(
+        drug2_name, drug2_prop_dict, radius=radius, nBits=nBits
+    )
+    row["Tanimoto_coefficient"] = calculate_tanimoto_coefficient(
+        drug1_name,
+        drug2_name,
+        drug1_prop_dict,
+        drug2_prop_dict,
+        radius=radius,
+        nBits=nBits,
+    )
 
-    # get physicochemical properties
-    data = []
-    for drug_pair in drug_combinations:
-        row = {}
-        drug1_name, drug2_name = drug_pair
-        drug1_prop_dict = get_properities_dictionary(drug1_name)
-        drug2_prop_dict = get_properities_dictionary(drug2_name)
-        row["Drug1_name"] = drug1_name
-        row["Drug2_name"] = drug2_name
-        row["Drug1_Smiles"] = get_smiles(drug1_name, drug1_prop_dict, drug2_name)
-        row["Drug2_Smiles"] = get_smiles(drug2_name, drug2_prop_dict)
-        row["Drug1_Mwt"] = get_mwt(drug1_name, drug1_prop_dict)
-        row["Drug2_Mwt"] = get_mwt(drug2_name, drug2_prop_dict)
-        row["Drug1_logP"] = get_clogp(drug1_name, drug1_prop_dict)
-        row["Drug2_logP"] = get_clogp(drug2_name, drug2_prop_dict)
-        row["Drug1_TPSA"] = get_tpsa(drug1_name, drug1_prop_dict)
-        row["Drug2_TPSA"] = get_tpsa(drug2_name, drug2_prop_dict)
-        row["Drug1_Hdonor"] = get_hdonor(drug1_name, drug1_prop_dict)
-        row["Drug2_Hdonor"] = get_hdonor(drug2_name, drug2_prop_dict)
-        row["Drug1_Hacceptor"] = get_hacceptor(drug1_name, drug1_prop_dict)
-        row["Drug2_Hacceptor"] = get_hacceptor(drug2_name, drug2_prop_dict)
-        row["Drug1_Rbond"] = get_rbond(drug1_name, drug1_prop_dict)
-        row["Drug2_Rbond"] = get_rbond(drug2_name, drug2_prop_dict)
-        row["Drug1_Morgan_fp"] = generate_morgan_fingerprint(
-            drug1_name, drug1_prop_dict, radius=radius, nBits=nBits
-        )
-        row["Drug2_Morgan_fp"] = generate_morgan_fingerprint(
-            drug2_name, drug2_prop_dict, radius=radius, nBits=nBits
-        )
-        row["Tanimoto_coefficient"] = calculate_tanimoto_coefficient(
-            drug1_name,
-            drug2_name,
-            drug1_prop_dict,
-            drug2_prop_dict,
-            radius=radius,
-            nBits=nBits,
-        )
-
-        data.append(row)
-    all_df = pd.DataFrame(data)
+    
+    all_df = pd.DataFrame(row)
 
     # Split the list in the cell into multiple columns
     df_split1 = all_df["Drug1_Morgan_fp"].apply(pd.Series)

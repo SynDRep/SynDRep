@@ -2,10 +2,59 @@
 
 """get drug data from KG"""
 
+from pathlib import Path
 import networkx as nx
+import pandas as pd
 import torch
 from tqdm import tqdm
 
+
+def get_graph_data(
+    drug1_name: str,
+    drug2_name: str,
+    Graph: nx.DiGraph,
+    device: str = 'cuda',
+)-> pd.DataFrame:
+    """
+    This function gets graph data for two drugs.
+    
+    :param drug1_name: The name of the first drug.
+    :param drug2_name: The name of the second drug.
+    :param Graph: The directed graph to analyze.
+    :param device: The device to use for computations. Defaults to 'cuda'.
+    
+    :return: A dataframe containing the graph data for the two drugs.
+    """
+
+    row = {}
+    row["Drug1_name"] = drug1_name
+    row["Drug2_name"] = drug2_name
+    row['Drug1_degree'] = get_drug_node_degree(Graph,drug1_name)
+    row['Drug2_degree'] = get_drug_node_degree(Graph, drug2_name)
+    row['Drug1_clustering_coefficient'] = get_drug_clustering_coefficient(Graph,drug1_name)
+    row['Drug2_clustering_coefficient'] = get_drug_clustering_coefficient(Graph, drug2_name)
+    row['Drug1_pagerank'] = get_drug_page_rank(Graph, drug1_name)
+    row['Drug2_pagerank'] = get_drug_page_rank(Graph, drug2_name)
+    row['Shortest_path_length'] = get_shortest_path_length(Graph, drug1_name, drug2_name)
+    row['Cosine_similarity'] = get_cosine_similarity(Graph,drug1_name,drug2_name, device)
+    return pd.DataFrame(row)
+    
+def generate_graph(
+    kg_file: str | Path,
+) -> nx.DiGraph:
+    
+    # Step 1: Read Data from TSV
+    
+    with open(kg_file, 'r') as f:
+        lines = f.readlines()
+
+    # Step 2: Create Graph and Add Edges
+    G = nx.DiGraph()  # You can choose a different graph type if needed
+
+    for line in lines:
+        source, relation, target= line.strip().split('\t')  # Assuming the format is source<TAB>target<TAB>weight
+        G.add_edge(source, target, label= relation)  
+    return G
 
 def get_drug_node_degree(Graph: nx.DiGraph, drug_name: str) -> int:
     """
