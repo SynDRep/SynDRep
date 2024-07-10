@@ -34,7 +34,7 @@ def get_physicochem_prop(
     drug_combinations = list(combinations(drug_list, 2))
 
     # get physicochemical properties
-    dfs = []
+    data = []
     for drug_pair in drug_combinations:
         row = {}
         drug1_name, drug2_name = drug_pair
@@ -70,58 +70,34 @@ def get_physicochem_prop(
             radius=radius,
             nBits=nBits,
         )
-        row_df = pd.DataFrame(
-            row,
-            columns=[
-                "Drug1_name",
-                "Drug2_name",
-                "Drug1_Smiles",
-                "Drug2_Smiles",
-                "Drug1_Mwt",
-                "Drug2_Mwt",
-                "Drug1_logP",
-                "Drug2_logP",
-                "Drug1_TPSA",
-                "Drug2_TPSA",
-                "Drug1_Hdonor",
-                "Drug2_Hdonor",
-                "Drug1_Hacceptor",
-                "Drug2_Hacceptor",
-                "Drug1_Rbond",
-                "Drug2_Rbond",
-                "Drug1_Morgan_fp",
-                "Drug2_Morgan_fp",
-                "Tanimoto_coefficient",
-            ],
-        )
-        dfs.append(row_df)
-    all_df = pd.concat(dfs)
+
+        data.append(row)
+    all_df = pd.DataFrame(data)
 
     # Split the list in the cell into multiple columns
     df_split1 = all_df["Drug1_Morgan_fp"].apply(pd.Series)
     df_split2 = all_df["Drug2_Morgan_fp"].apply(pd.Series)
 
     # Add column names based on the original column name with a number
-    column_names1 = [
+
+    df_split1.columns = [
         "Drug1_Morgan_fp_{}".format(i) for i in range(1, df_split1.shape[1] + 1)
     ]
-    df_split1.columns = column_names1
 
-    column_names2 = [
+    df_split2.columns = [
         "Drug2_Morgan_fp_{}".format(i) for i in range(1, df_split1.shape[1] + 1)
     ]
-    df_split2.columns = column_names2
 
     # Drop the original column containing the list from the DataFrame
-    df1 = all_df.drop("Drug1_Morgan_fp", axis=1)
-    df1 = df1.drop("Drug2_Morgan_fp", axis=1)
+    all_df.drop(columns=["Drug1_Morgan_fp", "Drug2_Morgan_fp"], inplace=True)
 
     # Concatenate the split DataFrame with the original DataFrame, retaining other columns
-    df1 = pd.concat([df1, df_split1, df_split2], axis=1)
+    result_df = pd.concat([all_df, df_split1, df_split2], axis=1)
 
-    df1 = df1.dropna().reset_index()
+    # Remove rows with any missing values and reset the index
+    result_df.dropna().reset_index(drop=True, inplace=True)
 
-    return df1
+    return result_df
 
 
 def get_properities_dictionary(drug_name: str) -> dict | None:
