@@ -15,7 +15,7 @@ def generate_enriched_kg(
     combos_folder: str,
     kg_drug_file: str,
     out_dir: str,
-    name_cid_dict: dict,
+    name_cid_dict: dict=None,
     scoring_method: str = "ZIP",
 ):
     """Produces an enriched KG with drug-drug combinations
@@ -50,7 +50,7 @@ def prepare_combinations(
     combos_folder: str,
     kg_drug_file: str,
     out_dir: str,
-    name_cid_dict: dict,
+    name_cid_dict: dict=None,
     scoring_method: str = "ZIP",
 ):
     """Prepare the drug combinations and produce the ones that can be added to KG
@@ -68,7 +68,7 @@ def prepare_combinations(
 
     # supply them with cids
 
-    kg_drugs = add_cid(kg_drugs, "Drug_name", name_cid_dict).dropna(subset=["Drug_CID"])
+    name_cid_dict, kg_drugs = add_cid(kg_drugs, "Drug_name", name_cid_dict).dropna(subset=["Drug_CID"])
 
     # export the name_cid_dict
     json.dump(name_cid_dict, open(f"{out_dir}/name_cid_dict.json", "w"), indent=4)
@@ -332,7 +332,7 @@ def get_cid(drug_name):
     return cid
 
 
-def add_cid(df, drug_name_column, name_cid_dict):
+def add_cid(df, drug_name_column, name_cid_dict=None):
     """adds a column with drugs cid
 
     Args:
@@ -345,14 +345,21 @@ def add_cid(df, drug_name_column, name_cid_dict):
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
         name = row[drug_name_column]
-        cid = name_cid_dict.get(name)
-        if cid:
-            df.loc[i, cid_column] = cid
+        
+        if name_cid_dict:
+            cid = name_cid_dict.get(name)
+            if cid:
+                df.loc[i, cid_column] = cid
+            else:
+                cid = get_cid(name)
+                name_cid_dict[name] = cid
+                df.loc[i, cid_column] = cid
         else:
+            name_cid_dict={}
             cid = get_cid(name)
             name_cid_dict[name] = cid
             df.loc[i, cid_column] = cid
-    return df
+    return name_cid_dict, df
 
 
 def synergy_detection(value):

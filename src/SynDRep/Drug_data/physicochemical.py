@@ -10,12 +10,13 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Crippen
 from rdkit.Chem import MolFromSmiles
 
-from ..Combos_prparation.prepare_combos import get_cid
+# from Combos_prparation.prepare_combos import get_cid
 
 
 def get_physicochem_prop(
     drug1_name: str,
     drug2_name: str,
+    all_drug_prop_dict: dict = None,
     radius: int = 6,
     nBits: int = 2048,
 ) -> pd.DataFrame:
@@ -30,43 +31,82 @@ def get_physicochem_prop(
     :return: A dataframe containing drug names, their physicochemical properties and molecular fingerprints.
     """
 
+    row = pd.DataFrame ( {'Drug1_name': drug1_name, 'Drug2_name': drug2_name},index=[0])
+    if all_drug_prop_dict:
+        drug1_prop_dict = all_drug_prop_dict.get(drug1_name)
+        drug2_prop_dict = all_drug_prop_dict.get(drug2_name)
+        if (drug1_prop_dict is None) or (drug2_prop_dict is None):
+            return None
+    else:
+        drug1_prop_dict = get_properties_dictionary(drug1_name)
+        drug2_prop_dict = get_properties_dictionary(drug2_name)
     
-    row = {}
-    drug1_prop_dict = get_properities_dictionary(drug1_name)
-    drug2_prop_dict = get_properities_dictionary(drug2_name)
-    row["Drug1_name"] = drug1_name
-    row["Drug2_name"] = drug2_name
-    row["Drug1_Smiles"] = get_smiles(drug1_name, drug1_prop_dict, drug2_name)
-    row["Drug2_Smiles"] = get_smiles(drug2_name, drug2_prop_dict)
-    row["Drug1_Mwt"] = get_mwt(drug1_name, drug1_prop_dict)
-    row["Drug2_Mwt"] = get_mwt(drug2_name, drug2_prop_dict)
-    row["Drug1_logP"] = get_clogp(drug1_name, drug1_prop_dict)
-    row["Drug2_logP"] = get_clogp(drug2_name, drug2_prop_dict)
-    row["Drug1_TPSA"] = get_tpsa(drug1_name, drug1_prop_dict)
-    row["Drug2_TPSA"] = get_tpsa(drug2_name, drug2_prop_dict)
-    row["Drug1_Hdonor"] = get_hdonor(drug1_name, drug1_prop_dict)
-    row["Drug2_Hdonor"] = get_hdonor(drug2_name, drug2_prop_dict)
-    row["Drug1_Hacceptor"] = get_hacceptor(drug1_name, drug1_prop_dict)
-    row["Drug2_Hacceptor"] = get_hacceptor(drug2_name, drug2_prop_dict)
-    row["Drug1_Rbond"] = get_rbond(drug1_name, drug1_prop_dict)
-    row["Drug2_Rbond"] = get_rbond(drug2_name, drug2_prop_dict)
-    row["Drug1_Morgan_fp"] = generate_morgan_fingerprint(
-        drug1_name, drug1_prop_dict, radius=radius, nBits=nBits
+    row["Drug1_CID"] = row["Drug1_name"].apply(
+        get_cid, drug_properties_dict=drug1_prop_dict
     )
-    row["Drug2_Morgan_fp"] = generate_morgan_fingerprint(
-        drug2_name, drug2_prop_dict, radius=radius, nBits=nBits
+    row["Drug2_CID"] = row["Drug2_name"].apply(
+        get_cid, drug_properties_dict=drug2_prop_dict
     )
-    row["Tanimoto_coefficient"] = calculate_tanimoto_coefficient(
-        drug1_name,
-        drug2_name,
-        drug1_prop_dict,
-        drug2_prop_dict,
+    row["Drug1_Mwt"] = row["Drug1_name"].apply(
+        get_mwt, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_Mwt"] = row["Drug2_name"].apply(
+        get_mwt, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_logP"] = row["Drug1_name"].apply(
+        get_clogp, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_logP"] = row["Drug2_name"].apply(
+        get_clogp, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_TPSA"] = row["Drug1_name"].apply(
+        get_tpsa, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_TPSA"] = row["Drug2_name"].apply(
+        get_tpsa, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_Hdonor"] = row["Drug1_name"].apply(
+        get_hdonor, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_Hdonor"] = row["Drug2_name"].apply(
+        get_hdonor, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_Hacceptor"] = row["Drug1_name"].apply(
+        get_hacceptor, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_Hacceptor"] = row["Drug2_name"].apply(
+        get_hacceptor, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_Rbond"] = row["Drug1_name"].apply(
+        get_rbond, drug_properties_dict=drug1_prop_dict
+    )
+    row["Drug2_Rbond"] = row["Drug2_name"].apply(
+        get_rbond, drug_properties_dict=drug2_prop_dict
+    )
+    row["Drug1_Morgan_fp"] = row["Drug1_name"].apply(
+        generate_morgan_fingerprint,
+        drug_properties_dict=drug1_prop_dict,
         radius=radius,
         nBits=nBits,
     )
 
+    row["Drug2_Morgan_fp"] = row["Drug2_name"].apply(
+        generate_morgan_fingerprint,
+        drug_properties_dict=drug2_prop_dict,
+        radius=radius,
+        nBits=nBits,
+    )
+    row["Tanimoto_coefficient"] = row["Drug1_name"].apply(
+        calculate_tanimoto_coefficient,
+        drug2_name=row["Drug2_name"],
+        drug1_properties_dict=drug1_prop_dict,
+        drug2_properties_dict=drug2_prop_dict,
+        radius=radius,
+        nBits=nBits,
+    )
+
+    all_df = row.copy()
     
-    all_df = pd.DataFrame(row)
 
     # Split the list in the cell into multiple columns
     df_split1 = all_df["Drug1_Morgan_fp"].apply(pd.Series)
@@ -94,7 +134,7 @@ def get_physicochem_prop(
     return result_df
 
 
-def get_properities_dictionary(drug_name: str) -> dict | None:
+def get_properties_dictionary(drug_name: str) -> dict | None:
     """
     This function retrieves the properties of a drug from PubChem using its name. This function uses the PubChem RESTful API to retrieve the properties.
 
@@ -126,7 +166,7 @@ def get_smiles(drug_name: str, drug_properties_dict: dict = None) -> str | None:
     :return: The canonical SMILES representation of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("CanonicalSMILES")
 
 
@@ -141,7 +181,7 @@ def get_mwt(drug_name: str, drug_properties_dict: dict = None) -> int | None:
     :return: The molecular weight of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("MolecularWeight")
 
 
@@ -157,7 +197,7 @@ def get_clogp(drug_name: str, drug_properties_dict: dict = None) -> float | None
     :return: The ClogP value of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     if drug_properties_dict.get("XLogP"):
         return drug_properties_dict.get("XLogP")
     else:
@@ -179,7 +219,7 @@ def get_tpsa(drug_name: str, drug_properties_dict: dict = None) -> float | None:
     :return: The TPSA value of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("TPSA")
 
 
@@ -194,7 +234,7 @@ def get_hdonor(drug_name: str, drug_properties_dict: dict = None) -> int | None:
     :return: The number of hydrogen bond donors of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("HBondDonorCount")
 
 
@@ -209,7 +249,7 @@ def get_hacceptor(drug_name: str, drug_properties_dict: dict = None) -> int | No
     :return: The number of hydrogen bond acceptors of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("HBondAcceptorCount")
 
 
@@ -225,7 +265,7 @@ def get_rbond(drug_name: str, drug_properties_dict: dict = None) -> str:
     """
 
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     return drug_properties_dict.get("RotatableBondCount")
 
 
@@ -247,7 +287,7 @@ def generate_morgan_fingerprint(
     :return: The Morgan fingerprint of the drug. If the drug is not found or the properties are not available, returns None.
     """
     if drug_properties_dict is None:
-        drug_properties_dict = get_properities_dictionary(drug_name)
+        drug_properties_dict = get_properties_dictionary(drug_name)
     smiles = get_smiles(drug_name, drug_properties_dict)
     mol = MolFromSmiles(smiles)
     morgan_fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius, nBits=nBits)
@@ -279,10 +319,10 @@ def calculate_tanimoto_coefficient(
     """
 
     if drug1_properties_dict is None:
-        drug1_properties_dict = get_properities_dictionary(drug1_name)
+        drug1_properties_dict = get_properties_dictionary(drug1_name)
 
     if drug2_properties_dict is None:
-        drug2_properties_dict = get_properities_dictionary(drug2_name)
+        drug2_properties_dict = get_properties_dictionary(drug2_name)
 
     smiles1 = get_smiles(drug1_name, drug1_properties_dict)
     smiles2 = get_smiles(drug2_name, drug2_properties_dict)
@@ -296,3 +336,29 @@ def calculate_tanimoto_coefficient(
     # Calculate the Tanimoto coefficient
     tanimoto_coefficient = DataStructs.TanimotoSimilarity(fp1, fp2)
     return tanimoto_coefficient
+
+
+def get_cid(drug_name,drug_properties_dict=None):
+    """get the PubChem ID for a drug
+
+    Args:
+        drug_name (str): drug name
+
+    Returns:
+        int: the cid of a drug
+    """
+
+    # add CID
+    if drug_properties_dict is None:
+        url = (
+            f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{drug_name}/cids/txt"
+        )
+        response = requests.get(url)
+        if response.status_code == 200:
+            cid = int(response.text.split("\n")[0])
+        else:
+            cid = None
+        return cid
+    else:
+        return drug_properties_dict.get('CID')
+        

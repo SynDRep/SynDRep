@@ -127,14 +127,13 @@ def enriched_kg(
     kg_drug_file,
     out_dir,
     combos_folder,
-    name_cid_dict,
+    name_cid_dict=None,
     scoring_method="ZIP",
 ):
     """Produces an enriched KG with drug-drug combinations."""
     if name_cid_dict:
         name_cid_dict = json.load(open(name_cid_dict))
-    else:
-        name_cid_dict = {}
+    
     generate_enriched_kg(
         kg_file=kg_file,
         combos_folder=combos_folder,

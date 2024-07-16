@@ -13,6 +13,8 @@ def get_graph_data(
     drug1_name: str,
     drug2_name: str,
     Graph: nx.DiGraph,
+    pagerank_all: dict=None,
+    node_vectors: dict=None,
     device: str = 'cuda',
 )-> pd.DataFrame:
     """
@@ -33,11 +35,11 @@ def get_graph_data(
     row['Drug2_degree'] = get_drug_node_degree(Graph, drug2_name)
     row['Drug1_clustering_coefficient'] = get_drug_clustering_coefficient(Graph,drug1_name)
     row['Drug2_clustering_coefficient'] = get_drug_clustering_coefficient(Graph, drug2_name)
-    row['Drug1_pagerank'] = get_drug_page_rank(Graph, drug1_name)
-    row['Drug2_pagerank'] = get_drug_page_rank(Graph, drug2_name)
+    row['Drug1_pagerank'] = get_drug_page_rank(Graph, drug1_name, pagerank_all)
+    row['Drug2_pagerank'] = get_drug_page_rank(Graph, drug2_name, pagerank_all)
     row['Shortest_path_length'] = get_shortest_path_length(Graph, drug1_name, drug2_name)
-    row['Cosine_similarity'] = get_cosine_similarity(Graph,drug1_name,drug2_name, device)
-    return pd.DataFrame(row)
+    row['Cosine_similarity'] = get_cosine_similarity(Graph,drug1_name,drug2_name, node_vectors, device)
+    return pd.DataFrame(row,index=[0])
     
 def generate_graph(
     kg_file: str | Path,
@@ -98,24 +100,25 @@ def get_drug_clustering_coefficient(Graph: nx.DiGraph, drug_name: str) -> float:
     :return: The clustering coefficient of the drug node in the graph.
     """
     
-    return nx.clustering_coefficient(Graph, drug_name)
+    return nx.clustering(Graph, drug_name)
 
 
-def get_drug_page_rank(Graph: nx.DiGraph, drug_name: str) -> int:
+def get_drug_page_rank(Graph: nx.DiGraph, drug_name: str, pagerank_all: dict=None) -> float:
     """
     This function retrieves the PageRank of a drug node in the graph.
 
     :param Graph: The directed graph to analyze.
     :param drug_name: The name of the drug.
+    :param pagerank_all: The dictionary containing the PageRank values of all nodes. Defaults to None
     
     :return: The PageRank of the drug node in the graph.
     """
-    pagerank_all = nx.pagerank(Graph)
-    return pagerank_all[drug_name]
-
+    if pagerank_all is None:
+        pagerank_all = nx.pagerank(Graph)
+    return pagerank_all.get(drug_name)
 
 def get_cosine_similarity(
-    Graph: nx.DiGraph, drug1: str, drug2: str, device="cuda"
+    Graph: nx.DiGraph, drug1_name: str, drug2_name: str, node_vectors: dict=None, device="cuda"
 ) -> float:
     """
     This function calculates the cosine similarity between two drug nodes in the graph.
@@ -127,27 +130,30 @@ def get_cosine_similarity(
     
     :return: The cosine similarity between the two drug nodes in the graph.
     """
-    node_neighbors = {node: set(Graph.neighbors(node)) for node in Graph.nodes()}
+    
+    if node_vectors is None:
+        node_neighbors = {node: set(Graph.neighbors(node)) for node in Graph.nodes()}
 
-    # Convert the neighborhood vectors to PyTorch tensors
-    node_vectors = {
-        node: torch.tensor(
-            [1 if i in node_neighbors[node] else 0 for i in Graph.nodes()]
-        )
-        for node in tqdm(Graph.nodes())
-    }
+        # Convert the neighborhood vectors to PyTorch tensors
+        node_vectors = {
+            node: torch.tensor(
+                [1 if i in node_neighbors[node] else 0 for i in Graph.nodes()]
+            )
+            for node in tqdm(Graph.nodes())
+        }
+    
 
     # Get the neighborhoods of the nodes
 
     vector_drug1 = (
-        node_vectors[drug1].float().cuda()
+        node_vectors[drug1_name].float().cuda()
         if device == "cuda"
-        else node_vectors[drug1].float()
+        else node_vectors[drug1_name].float()
     )
     vector_drug2 = (
-        node_vectors[drug2].float().cuda()
+        node_vectors[drug2_name].float().cuda()
         if device == "cuda"
-        else node_vectors[drug2].float()
+        else node_vectors[drug2_name].float()
     )
 
     # Calculate cosine similarity

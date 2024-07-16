@@ -63,8 +63,12 @@ def mean_hits(results_json):
 
 def draw_graph(df, title, xlabel, ylabel, path):
     
-    df.plot(kind="bar", figsize=(10, 6))
-    plt.title(title, fontweight="bold")
-    plt.xlabel(xlabel, fontweight="bold")
-    plt.ylabel(ylabel, fontweight="bold")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    df.plot(kind="bar", ax=ax)
+    
+    ax.set_title(title, fontweight="bold")
+    ax.set_xlabel(xlabel, fontweight="bold")
+    ax.set_ylabel(ylabel, fontweight="bold")
+    
     plt.savefig(path)
+    plt.close()

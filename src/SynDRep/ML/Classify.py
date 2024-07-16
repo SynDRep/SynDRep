@@ -90,8 +90,9 @@ def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
     # Create a DataFrame with predictions and their probabilities for both classes
     result_df = pd.DataFrame({
         'Prediction': model.predict(data_df),  # Replace with appropriate prediction method for your task
-        'Probability_Positive_Class': predicted_probabilities[:, 1],
-        'Probability_Negative_Class': predicted_probabilities[:, 0]
+        'Synergism_probability': predicted_probabilities[:, 2],
+        'Additism_probability': predicted_probabilities[:, 1],
+        'Antagonism_probability': predicted_probabilities[:, 0]
     })
     pred = pd.concat([ids, result_df], axis=1)
     
