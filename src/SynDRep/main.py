@@ -7,7 +7,7 @@ from typing import List
 import pandas as pd
 from Combos_prparation.prepare_combos import generate_enriched_kg
 from Embedding.Embedding import compare_embeddings ,embed_and_predict
-from ML.Classify import classify_data
+from SynDRep.ML.classify import classify_data
 from Drug_data.main import get_graph_and_physicochem_properties
 from Drug_data.physicochemical import get_physicochem_prop
 from tqdm import tqdm

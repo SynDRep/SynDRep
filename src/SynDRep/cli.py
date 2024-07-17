@@ -6,9 +6,9 @@ import json
 from typing import List
 import click
 import pandas as pd
-from Combos_prparation.prepare_combos import generate_enriched_kg
-from Embedding.Embedding import embed_and_predict
-from ML.Classify import classify_data
+from SynDRep.combos_preparation.prepare_combos import generate_enriched_kg
+from SynDRep.embedding.embedding import embed_and_predict
+from SynDRep.ML.classify import classify_data
 
 
 @click.group()

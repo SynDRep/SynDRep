@@ -1,6 +1,6 @@
 
 import pandas as pd
-from Classify import classify_data
+from SynDRep.ML.classify import classify_data
 
 
 data_for_training = pd.read_csv('../test_data/all_train_test_data.csv')

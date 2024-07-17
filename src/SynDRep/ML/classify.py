@@ -33,7 +33,7 @@ from xgboost import XGBClassifier
 from scipy.stats import uniform, loguniform
 from skopt.space import Real, Categorical, Integer
 
-from ML.Scoring import multiclass_score_func, draw_graph
+from SynDRep.ML.scoring import multiclass_score_func, draw_graph
 
 # logger = logging.getLogger(__name__)
 # logger.setLevel(logging.WARN)

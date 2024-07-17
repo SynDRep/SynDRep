@@ -6,15 +6,15 @@ from itertools import combinations
 
 import pandas as pd
 import torch
-from Prediction import predict_diff_dataset
-from Prediction import predict_with_model
+from SynDRep.embedding.prediction import predict_diff_dataset
+from SynDRep.embedding.prediction import predict_with_model
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from pykeen.triples import TriplesFactory
-from Scoring import draw_graph
-from Scoring import mean_hits
-from Scoring import multiclass_score_func
-from Scoring import percents_true_predictions
+from SynDRep.embedding.scoring import draw_graph
+from SynDRep.embedding.scoring import mean_hits
+from SynDRep.embedding.scoring import multiclass_score_func
+from SynDRep.embedding.scoring import percents_true_predictions
 from tqdm import tqdm
 
 
