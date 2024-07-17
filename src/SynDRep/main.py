@@ -187,7 +187,6 @@ def run_SynDRep(
         return predicted_df
         
     elif methode == "physicochemical_data_and_embedding_then_ML":
-        # TODO: Implement physicochemical_data_and_embedding_then_ML
         # get embeddings
         best_model = compare_embeddings(
             all_out_file=all_out_file,
@@ -270,13 +269,11 @@ def run_SynDRep(
         )
         return predicted_df
         
-        pass
+        
     else:
         raise ValueError(
             f"Invalid method: {methode}. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML"
         )
-
-    return None
 
 
 def get_ML_train_and_preidction_data(
