@@ -34,9 +34,11 @@
 - [Installation](#installation)
 - [Documentation](#documentation)
 - [Input Data Formats](#input-data-formats)
-  - [Data](#data)
-  - [Design](#design)
+  - [Drug combinations](#drug-combinations)
   - [Knowledge Graph](#knowledge-graph)
+  - [Knowledge Graph Labels](#knowledge-graph-labels)
+  - [Knowledge Graph Drugs](#knowledge-graph-drugs)
+
 - [Usage](#usage)
 - [Issues](#issues)
 - [Acknowledgements](#acknowledgements)
@@ -99,12 +101,29 @@ The graph format should be a modified version of the Edge List Format. Which loo
     
 **Note:** The data must be in a tab separated file format.
 
+### Knowledge Graph Labels
+
+a file containing the nodes Name and types such as protein, gene, or drug.
+
+| Type    | Name    |
+| --------- | ----------- |
+| BiologicalProcess | bp(MESHPP:Neuroprotection) |
+| Drug | Pegfilgrastim
+|Protein | p(HGNC:CPEB2)
+    
+**Note:** The data must be in a tab separated file format.
+
+### Knowledge Graph Drugs
+
+a file containing the drugs in KG.  It should be a CSV file containing all the names of drugs in KG. It shoud have "Drug_name" column and any other columns.
+    
+**Note:** The data must be in a tab separated file format.
 
 ## Usage
 
 **Note:** These are very basic commands for SynDRep, and the detailed options for each command can be found in the [documentation](#documentation)
 
-1. **enriched Kg generation**
+1. **Enriched Kg generation**
 The following command generates a KG enriched with drug-drug combinations from KG, drugs, and combination files.
 
 ```bash
@@ -155,4 +174,4 @@ Bharadhwaj, V. S., Ali, M., Birkenbihl, C., Mubeen, S., Lehmann, J., Hofmann-Api
 
 ## Disclaimer
 
-SynDREP is a scientific software that has been developed in an academic capacity, and thus comes with no warranty or guarantee of maintenance, support, or back-up of data.
+SynDRep is a scientific software that has been developed in an academic capacity, and thus comes with no warranty or guarantee of maintenance, support, or back-up of data.
