@@ -148,7 +148,7 @@ $ clep classify --data <EMBEDDING_FILE> --model elastic_net --num-trials 100 --o
 
 ## Issues
 
-If you have difficulties using SynDErp, please open an issue at our [GitHub](https://github.com/syndrep) repository.
+If you have difficulties using SynDRep, please open an issue at our [GitHub](https://github.com/syndrep) repository.
 
 ## Acknowledgements
 
