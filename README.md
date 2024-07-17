@@ -53,12 +53,6 @@ SynDRep is  a novel drug repurposing tool based on enriching knowledge graphs wi
 ## Installation
 
 
-<!-- The code can be installed from [PyPI](https://pypi.org/project/syndrep/) with:
-
-```bash
-$ pip install syndrep
-```
-
 The most recent code can be installed from the source on [GitHub](https://github.com/syndrep) with:
 
 ```bash
@@ -71,7 +65,7 @@ For developers, the repository can be cloned from [GitHub](https://github.com/sy
 $ git clone https://github.com/syndrep.git
 $ cd syndrep
 $ pip install -e .
-``` -->
+```
 
 ## Documentation
 
