@@ -6,8 +6,8 @@ from itertools import combinations
 from pathlib import Path
 
 from tqdm import tqdm
-from physicochemical import get_physicochem_prop
-from graph_data import get_graph_data, generate_graph
+from .physicochemical import get_physicochem_prop
+from .graph_data import get_graph_data, generate_graph
 
 import pandas as pd
 import networkx as nx

@@ -6,16 +6,16 @@ from itertools import combinations
 
 import pandas as pd
 import torch
-from prediction import predict_diff_dataset
-from prediction import gz_to_dict
+from .prediction import predict_diff_dataset
+from .prediction import gz_to_dict
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
-from scoring import draw_graph
-from scoring import mean_hits
-from scoring import multiclass_score_func
-from scoring import percents_true_predictions
+from .scoring import draw_graph
+from .scoring import mean_hits
+from .scoring import multiclass_score_func
+from .scoring import percents_true_predictions
 from tqdm import tqdm
 
 

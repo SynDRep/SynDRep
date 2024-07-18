@@ -3,7 +3,6 @@
 import gzip
 
 import pandas as pd
-import torch
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
 from tqdm import tqdm
