@@ -6,15 +6,16 @@ from itertools import combinations
 
 import pandas as pd
 import torch
-from SynDRep.embedding.prediction import predict_diff_dataset
-from SynDRep.embedding.prediction import predict_with_model
+from prediction import predict_diff_dataset
+from prediction import gz_to_dict
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
+from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
-from SynDRep.embedding.scoring import draw_graph
-from SynDRep.embedding.scoring import mean_hits
-from SynDRep.embedding.scoring import multiclass_score_func
-from SynDRep.embedding.scoring import percents_true_predictions
+from scoring import draw_graph
+from scoring import mean_hits
+from scoring import multiclass_score_func
+from scoring import percents_true_predictions
 from tqdm import tqdm
 
 
@@ -59,6 +60,30 @@ def embed_and_predict(
         get_embeddings_data=get_embeddings_data,
     )
 
+    model = torch.load(
+        f"{out_dir}/{best_model}/{best_model}_best_model_results/trained_model.pkl"
+    )
+
+    entity_to_id = gz_to_dict(
+        f"{out_dir}/{best_model}/{best_model}_best_model_results/training_triples/entity_to_id.tsv.gz"
+    )
+    relation_to_id = gz_to_dict(
+        f"{out_dir}/{best_model}/{best_model}_best_model_results/training_triples/relation_to_id.tsv.gz"
+    )
+
+    if subsplits:
+        tf = TriplesFactory.from_path(
+            f"{out_dir}/train_data_ss.tsv",
+            entity_to_id=entity_to_id,
+            relation_to_id=relation_to_id,
+        )
+    else:
+        tf = TriplesFactory.from_path(
+            f"{out_dir}/train_data.tsv",
+            entity_to_id=entity_to_id,
+            relation_to_id=relation_to_id,
+        )
+
     drugs = pd.read_csv(kg_drug_file)["Drug_name"].tolist()
     combs = list(combinations(drugs, 2))
     df_list_all = []
@@ -66,14 +91,11 @@ def embed_and_predict(
 
     for comb in tqdm(combs):
         head, tail = comb
-        pred_df = predict_with_model(
-            model_name=best_model,
-            out_dir=out_dir,
-            subsplits=subsplits,
-            drug1=head,
-            drug2=tail,
-        )
-
+        pred_df = predict_target(
+            model=model, head=str(head), tail=str(tail), triples_factory=tf
+        ).df
+        pred_df["head_label"] = str(head)
+        pred_df["tail_label"] = str(tail)
         # add to list of data frames
         df_list_all.append(pred_df)
         # add the best 1 to another df
@@ -81,14 +103,11 @@ def embed_and_predict(
         df_list_best.append(pred_df)
 
         if pred_reverse:
-            reverse_pred_df = predict_with_model(
-                model_name=best_model,
-                out_dir=out_dir,
-                subsplits=subsplits,
-                drug1=tail,
-                drug2=head,
-            )
-
+            reverse_pred_df = predict_target(
+                model=model, head=str(tail), tail=str(head), triples_factory=tf
+            ).df
+            pred_df["head_label"] = str(tail)
+            pred_df["tail_label"] = str(head)
             # add to list of data frames
             df_list_all.append(reverse_pred_df)
             # add the best 1 to another df
@@ -126,19 +145,19 @@ def compare_embeddings(
     models_names: list,
     kg_file,
     out_dir,
-    all_out_file: str = None,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
-    filter_training=False,
-    get_embeddings_data=False,
-    kg_labels_file=None,
-    predict_all=False,
-    source_type=None,
     subsplits=True,
-    target_type=None,
     test_specific_type=False,
+    kg_labels_file=None,
+    source_type=None,
+    target_type=None,
+    predict_all=False,
+    all_out_file: str = None,
     with_annotation=True,
+    filter_training=False,
     with_scoring=True,
+    get_embeddings_data=False,
 ):
 
     results = []

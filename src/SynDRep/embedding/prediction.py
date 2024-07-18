@@ -8,37 +8,6 @@ from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
 from tqdm import tqdm
 
-def predict_with_model(
-    model_name: str,
-    out_dir,
-    subsplits,
-    drug1,
-    drug2,
-):
-    model = torch.load(f"{out_dir}/{model_name}/{model_name}_best_model_results/trained_model.pkl")
-    
-    entity_to_id = gz_to_dict(f'{out_dir}/{model_name}/{model_name}_best_model_results/training_triples/entity_to_id.tsv.gz')
-    relation_to_id = gz_to_dict(f'{out_dir}/{model_name}/{model_name}_best_model_results/training_triples/relation_to_id.tsv.gz')
-
-    if subsplits:
-        tf = TriplesFactory.from_path(f'{out_dir}/train_data_ss.tsv',
-                                        entity_to_id=entity_to_id,
-                                        relation_to_id=relation_to_id
-                                        )
-    else:
-        tf = TriplesFactory.from_path(f'{out_dir}/train_data.tsv',
-                                        entity_to_id=entity_to_id,
-                                        relation_to_id=relation_to_id
-                                        )
-    pred = predict_target(
-        model=model,
-        head=str(drug1),
-        tail=str(drug2),
-        triples_factory=tf
-    ).df
-    
-    return pred
-    
 
 def predict_diff_dataset(
     model,
@@ -88,7 +57,7 @@ def predict_diff_dataset(
     df_all = pd.concat(df_list_all, ignore_index=True)
     df_best = pd.concat(df_list_best, ignore_index=True)
     if with_annotation:
-        if any ([training_df is None, testing_df is None, validation_df is None]):
+        if any([training_df is None, testing_df is None, validation_df is None]):
             raise Exception(
                 " not all paths for training, testing, and validation have been provided"
             )
@@ -101,7 +70,7 @@ def predict_diff_dataset(
                 testing_df=testing_df,
                 validation_df=validation_df,
                 subsplits=subsplits,
-                main_test_df=main_test_df
+                main_test_df=main_test_df,
             )
             if filter_training:
                 annot_dict[x] = annot_dict[x][
@@ -131,7 +100,9 @@ def predict_diff_dataset(
         return df_all, df_best
 
 
-def pred_manipulation(df, training_df, testing_df, validation_df, subsplits=None, main_test_df=None):
+def pred_manipulation(
+    df, training_df, testing_df, validation_df, subsplits=None, main_test_df=None
+):
 
     columns = ["source", "relation", "target"]
 
@@ -142,7 +113,7 @@ def pred_manipulation(df, training_df, testing_df, validation_df, subsplits=None
     df_training = df_checker(df, training_df, "training")
     df_testing = df_checker(df_training, testing_df, "testing")
     df_final = df_checker(df_testing, validation_df, "validation")
-    
+
     if subsplits is not None:
         df_final = df_checker(df_final, main_test_df, "main_test")
 
@@ -173,6 +144,7 @@ def df_checker(query_df, reference_df, set_name):
         if len(result_df["source"].tolist()) > 0:
             query_df.loc[i, f"in_{set_name}"] = True
     return query_df
+
 
 def gz_to_dict(path):
     """A function to get the dictionary out of gz file
