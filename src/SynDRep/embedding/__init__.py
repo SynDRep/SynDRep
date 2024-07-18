@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Single Sample Scoring for clep."""
+"""Embeddings and predictions fro syndrep."""
 
 from .embedding import embed_and_predict, compare_embeddings
 
