@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
-from .combos_preparation import generate_enriched_kg 
-from .embedding import compare_embeddings ,embed_and_predict
+from .combos_preparation import generate_enriched_kg
+from .embedding import compare_embeddings, embed_and_predict
 from .ML import classify_data
 from .drug_data import get_graph_and_physicochem_properties
 from .drug_data import get_physicochem_prop
@@ -14,36 +14,34 @@ from tqdm import tqdm
 
 
 def run_SynDRep(
-    EM_models_names: List[str],
+    em_models_names: List[str],
     kg_file,
     out_dir,
     combos_folder: str,
     kg_drug_file: str,
     optimizer_name: str,
-    ML_model_names: List[str],
+    ml_model_names: List[str],
     validation_cv: int,
     scoring_metrics: List[str],
     rand_labels: bool,
+    kg_labels_file,
+    drug_class_name,
+    all_drug_drug_predictions=False,
+    all_drug_prop_dict: dict = None,
     all_out_file: str = None,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
+    device="cuda",
     filter_training=False,
-    kg_labels_file=None,
-    methode: str = "Embeeding_only",
+    method: str = "Embeeding_only",
+    nBits: int = 2048,
     name_cid_dict: dict = None,
     pred_reverse=False,
     predict_all=False,
-    scoring_method: str = "ZIP",
-    sorted_predictions=False,
-    all_drug_drug_score=False,
-    source_type=None,
-    subsplits=True,
-    target_type=None,
-    test_specific_type=False,
-    all_drug_prop_dict: dict = None,
     radius: int = 6,
-    nBits: int = 2048,
-    device="cuda", 
+    scoring_method: str = "ZIP",
+    sorted_predictions=True,
+    subsplits=True,
 ):
     generate_enriched_kg(
         combos_folder := combos_folder,
@@ -53,48 +51,49 @@ def run_SynDRep(
         out_dir=out_dir,
         scoring_method=scoring_method,
     )
-    if methode == "Embeeding_only":
-        
+    if method == "Embeeding_only":
+
         prediction_all, prediction_best = embed_and_predict(
-        kg_drug_file = kg_drug_file,
-        models_names=EM_models_names ,
-        kg_file =kg_file,
-        out_dir=out_dir,
-        best_out_file=best_out_file,
-        config_path=config_path,
-        subsplits=subsplits,
-        test_specific_type=test_specific_type,
-        kg_labels_file=kg_labels_file,
-        source_type=source_type,
-        target_type=target_type,
-        predict_all_test=predict_all,
-        all_out_file=all_out_file,
-        filter_training=filter_training,
-        get_embeddings_data=False,
-        pred_reverse=pred_reverse,
-        sorted_predictions=sorted_predictions,
-        all_drug_drug_score=all_drug_drug_score
-    )
+            kg_drug_file=kg_drug_file,
+            models_names=em_models_names,
+            kg_file=f"{out_dir}/enriched_kg.tsv",
+            out_dir=out_dir,
+            best_out_file=best_out_file,
+            config_path=config_path,
+            subsplits=subsplits,
+            kg_labels_file=kg_labels_file,
+            drug_class_name=drug_class_name,
+            predict_all_test=predict_all,
+            all_out_file=all_out_file,
+            filter_training=filter_training,
+            get_embeddings_data=False,
+            pred_reverse=pred_reverse,
+            sorted_predictions=sorted_predictions,
+            all_drug_drug_predictions=all_drug_drug_predictions,
+        )
         return prediction_all, prediction_best
-    
-    elif methode == "Embeeding_then_ML":
-        
+
+    elif method == "Embeeding_then_ML":
+        if name_cid_dict is None:
+            # load drug_df
+            kg_drugs = pd.read_csv(kg_drug_file)
+
+            # get name_cid_dict
+            name_cid_dict, kg_drugs = add_cid(kg_drugs, "Drug_name", name_cid_dict)
         # get embeddings
         best_model = compare_embeddings(
             all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
             filter_training=filter_training,
+            drug_class_name=drug_class_name,
             get_embeddings_data=True,
-            kg_file=f"{out_dir}/enriched_kg.tsv",
+            kg_file=kg_file,
             kg_labels_file=kg_labels_file,
-            models_names=EM_models_names,
+            models_names=em_models_names,
             out_dir=out_dir,
-            predict_all=predict_all,
-            source_type=source_type,
             subsplits=subsplits,
-            target_type=target_type,
-            test_specific_type=test_specific_type,
+            predict_all=predict_all,
         )
         embeddings = pd.read_csv(
             f"{out_dir}/{best_model}/{best_model}_embeddings_drugs.csv"
@@ -115,8 +114,12 @@ def run_SynDRep(
             combined_row["Drug1_name"] = row1["entity"]
             combined_row["Drug2_name"] = row2["entity"]
             # Add the node cids to the combined row
-            combined_row["Drug1_CID"] = combined_row["Drug1_name"].apply(name_cid_dict.get)
-            combined_row["Drug2_CID"] = combined_row["Drug2_name"].apply(name_cid_dict.get)
+            combined_row["Drug1_CID"] = combined_row["Drug1_name"].apply(
+                name_cid_dict.get
+            )
+            combined_row["Drug2_CID"] = combined_row["Drug2_name"].apply(
+                name_cid_dict.get
+            )
             # Add the embeddings to the combined row
             for col in embedding_columns:
                 combined_row[f"Drug1_{col}"] = row1[col]
@@ -140,7 +143,7 @@ def run_SynDRep(
         predicted_df = classify_data(
             data_for_prediction=data_for_prediction,
             data_for_training=data_for_training,
-            model_names=ML_model_names,
+            model_names=ml_model_names,
             optimizer_name=optimizer_name,
             out_dir=out_dir,
             rand_labels=rand_labels,
@@ -149,24 +152,29 @@ def run_SynDRep(
         )
         return predicted_df
 
-    elif methode == "Data_extraction_then_ML":
-        
+    elif method == "Data_extraction_then_ML":
+
         combined_df = get_graph_and_physicochem_properties(
             kg_file=kg_file,
             kg_drug_file=kg_drug_file,
             out_dir=out_dir,
-            all_drug_prop_dict=all_drug_prop_dict, 
+            all_drug_prop_dict=all_drug_prop_dict,
             device=device,
             radius=radius,
             nBits=nBits,
         )
-        
+
         combined_df.to_csv(
-            f"{best_model}_drug_combinations_physicochemical_and_graph_data.csv", index=False
+            f"{best_model}_drug_combinations_physicochemical_and_graph_data.csv",
+            index=False,
         )
-        
-        input_columns = [col for col in combined_df.columns if ("name" not in col) and ('CID' not in col)]
-        
+
+        input_columns = [
+            col
+            for col in combined_df.columns
+            if ("name" not in col) and ("CID" not in col)
+        ]
+
         data_for_training, data_for_prediction = get_ML_train_and_preidction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
@@ -177,7 +185,7 @@ def run_SynDRep(
         predicted_df = classify_data(
             data_for_prediction=data_for_prediction,
             data_for_training=data_for_training,
-            model_names=ML_model_names,
+            model_names=ml_model_names,
             optimizer_name=optimizer_name,
             out_dir=out_dir,
             rand_labels=rand_labels,
@@ -185,24 +193,22 @@ def run_SynDRep(
             validation_cv=validation_cv,
         )
         return predicted_df
-        
-    elif methode == "physicochemical_data_and_embedding_then_ML":
+
+    elif method == "physicochemical_data_and_embedding_then_ML":
         # get embeddings
         best_model = compare_embeddings(
             all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
             filter_training=filter_training,
+            drug_class_name=drug_class_name,
             get_embeddings_data=True,
-            kg_file=f"{out_dir}/enriched_kg.tsv",
+            kg_file=kg_file,
             kg_labels_file=kg_labels_file,
-            models_names=EM_models_names,
+            models_names=em_models_names,
             out_dir=out_dir,
-            predict_all=predict_all,
-            source_type=source_type,
             subsplits=subsplits,
-            target_type=target_type,
-            test_specific_type=test_specific_type,
+            predict_all=predict_all,
         )
         embeddings = pd.read_csv(
             f"{out_dir}/{best_model}/{best_model}_embeddings_drugs.csv"
@@ -225,10 +231,10 @@ def run_SynDRep(
                 embedding_row[f"Drug1_{col}"] = row1[col]
                 embedding_row[f"Drug2_{col}"] = row2[col]
             embedding_rows.append(embedding_row)
-            
+
             # get physicochemical data
             ph_ch_row = get_physicochem_prop(
-                drug1_name= row1["entity"],
+                drug1_name=row1["entity"],
                 drug2_name=row2["entity"],
                 out_dir=out_dir,
                 all_drug_prop_dict=all_drug_prop_dict,
@@ -236,20 +242,25 @@ def run_SynDRep(
                 radius=radius,
             )
             ph_ch_rows.append(ph_ch_row)
-            
-            
 
         embedding_df = pd.DataFrame(embedding_rows)
         ph_ch_df = pd.concat(ph_ch_rows)
-        
-        combined_df = pd.concat([ph_ch_df, embedding_df],axis=1).reset_index(inplace=True,drop=True)
-        
-        combined_df.to_csv(
-            f"{best_model}_drug_combinations_physicochemical_and_embeddings.csv", index=False
+
+        combined_df = pd.concat([ph_ch_df, embedding_df], axis=1).reset_index(
+            inplace=True, drop=True
         )
-        
-        input_columns = [col for col in combined_df.columns if ("name" not in col) and ('CID' not in col)]
-        
+
+        combined_df.to_csv(
+            f"{best_model}_drug_combinations_physicochemical_and_embeddings.csv",
+            index=False,
+        )
+
+        input_columns = [
+            col
+            for col in combined_df.columns
+            if ("name" not in col) and ("CID" not in col)
+        ]
+
         data_for_training, data_for_prediction = get_ML_train_and_preidction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
@@ -260,7 +271,7 @@ def run_SynDRep(
         predicted_df = classify_data(
             data_for_prediction=data_for_prediction,
             data_for_training=data_for_training,
-            model_names=ML_model_names,
+            model_names=ml_model_names,
             optimizer_name=optimizer_name,
             out_dir=out_dir,
             rand_labels=rand_labels,
@@ -268,11 +279,10 @@ def run_SynDRep(
             validation_cv=validation_cv,
         )
         return predicted_df
-        
-        
+
     else:
         raise ValueError(
-            f"Invalid method: {methode}. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML"
+            f"Invalid method: {method}. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML"
         )
 
 

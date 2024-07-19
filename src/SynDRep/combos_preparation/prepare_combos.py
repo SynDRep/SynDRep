@@ -68,7 +68,8 @@ def prepare_combinations(
 
     # supply them with cids
 
-    name_cid_dict, kg_drugs = add_cid(kg_drugs, "Drug_name", name_cid_dict).dropna(subset=["Drug_CID"])
+    name_cid_dict, kg_drugs = add_cid(kg_drugs, "Drug_name", name_cid_dict)
+    kg_drugs = kg_drugs.dropna(subset=["Drug_CID"])
 
     # export the name_cid_dict
     json.dump(name_cid_dict, open(f"{out_dir}/name_cid_dict.json", "w"), indent=4)

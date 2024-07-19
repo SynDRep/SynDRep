@@ -6,17 +6,18 @@ from itertools import combinations
 
 import pandas as pd
 import torch
-from .prediction import predict_diff_dataset
-from .prediction import gz_to_dict
 from pykeen.hpo.hpo import hpo_pipeline_from_path
 from pykeen.pipeline import pipeline_from_config
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
+from tqdm import tqdm
+
+from .prediction import gz_to_dict
+from .prediction import predict_diff_dataset
 from .scoring import draw_graph
 from .scoring import mean_hits
 from .scoring import multiclass_score_func
 from .scoring import percents_true_predictions
-from tqdm import tqdm
 
 
 def embed_and_predict(
@@ -24,39 +25,31 @@ def embed_and_predict(
     models_names: list,
     kg_file,
     out_dir,
+    kg_labels_file,
+    drug_class_name,
+    all_drug_drug_predictions=False,
+    all_out_file: str = None,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
-    subsplits=True,
-    test_specific_type=True,
-    kg_labels_file=None,
-    source_type="Drug",
-    target_type="Drug",
-    predict_all_test=False,
-    all_out_file: str = None,
-    with_annotation=True,
     filter_training=False,
-    with_scoring=True,
     get_embeddings_data=False,
     pred_reverse=True,
+    predict_all_test=False,
     sorted_predictions=True,
-    all_drug_drug_score=False,
+    subsplits=True,
 ):
     best_model = compare_embeddings(
         models_names=models_names,
         kg_file=kg_file,
         out_dir=out_dir,
+        drug_class_name=drug_class_name,
         best_out_file=best_out_file,
         config_path=config_path,
         subsplits=subsplits,
-        test_specific_type=test_specific_type,
         kg_labels_file=kg_labels_file,
-        source_type=source_type,
-        target_type=target_type,
         predict_all=predict_all_test,
         all_out_file=all_out_file,
-        with_annotation=with_annotation,
         filter_training=filter_training,
-        with_scoring=with_scoring,
         get_embeddings_data=get_embeddings_data,
     )
 
@@ -128,7 +121,7 @@ def embed_and_predict(
             },
             inplace=True,
         )
-    if all_drug_drug_score:
+    if all_drug_drug_predictions:
         df_all.to_csv(
             f"{out_dir}/{best_model}/{best_model}_drug_drug_predictions_all.csv",
             index=False,
@@ -145,18 +138,14 @@ def compare_embeddings(
     models_names: list,
     kg_file,
     out_dir,
+    kg_labels_file,
+    drug_class_name,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
     subsplits=True,
-    test_specific_type=False,
-    kg_labels_file=None,
-    source_type=None,
-    target_type=None,
     predict_all=False,
     all_out_file: str = None,
-    with_annotation=True,
     filter_training=False,
-    with_scoring=True,
     get_embeddings_data=False,
 ):
 
@@ -167,52 +156,35 @@ def compare_embeddings(
             kg_file=kg_file,
             out_dir=out_dir,
             model_name=model_name,
+            drug_class_name=drug_class_name,
             best_out_file=best_out_file,
             config_path=config_path,
             subsplits=subsplits,
-            test_specific_type=test_specific_type,
             kg_labels_file=kg_labels_file,
-            source_type=source_type,
-            target_type=target_type,
             predict_all=predict_all,
             all_out_file=all_out_file,
-            with_annotation=with_annotation,
             filter_training=filter_training,
-            with_scoring=with_scoring,
         )
         result = [model_name]
         result.extend(embedding_results[1:])
         results.append(result)
 
-    if test_specific_type:
-        columns = [
-            "model",
-            "Percentage of true predictions for all relations",
-            "adjusted_arithmetic_mean_rank",
-            "hits_at_10",
-            "roc_auc for all relations",
-            f"Percentage of true predictions for {source_type}-{target_type} relations",
-        ]
-    else:
-        columns = [
-            "model",
-            "Percentage of true predictions for all relations",
-            "adjusted_arithmetic_mean_rank",
-            "hits_at_10",
-            "roc-auc for all relations",
-        ]
+    
+    columns = [
+        "model",
+        "Percentage of true predictions for all relations",
+        "adjusted_arithmetic_mean_rank",
+        "hits_at_10",
+        "roc_auc for all relations",
+        f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations",
+    ]
     results_df = pd.DataFrame(results, columns=columns)
     results_df.to_csv(f"{out_dir}/Models_results.csv", index=False)
-    if test_specific_type:
-        max_score_row = results_df.loc[
-            results_df[
-                f"Percentage of true predictions for {source_type}-{target_type} relations"
-            ].idxmax()
-        ]
-    else:
-        max_score_row = results_df.loc[
-            results_df["Percentage of true predictions for all relations"].idxmax()
-        ]
+    max_score_row = results_df.loc[
+        results_df[
+            f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations"
+        ].idxmax()
+    ]
     best_model = max_score_row["model"]
     df = pd.read_csv(f"{out_dir}/Models_results.csv")
     df.set_index("model", inplace=True)
@@ -243,18 +215,14 @@ def kg_embedding(
     kg_file,
     out_dir,
     model_name,
+    kg_labels_file,
+    drug_class_name,
     best_out_file: str = "predictions_best.csv",
     config_path=None,
     subsplits=True,
-    test_specific_type=False,
-    kg_labels_file=None,
-    source_type=None,
-    target_type=None,
     predict_all=False,
     all_out_file: str = None,
-    with_annotation=True,
     filter_training=False,
-    with_scoring=True,
 ):
 
     # make the splits
@@ -268,25 +236,21 @@ def kg_embedding(
             validation_tf,
             main_test_df,
         ) = create_data_splits(
-            kg_file,
-            out_dir,
-            subsplits,
-            test_specific_type,
-            kg_labels_file,
-            source_type,
-            target_type,
-        )
+        kg_file,
+        out_dir,
+        kg_labels_file,
+        drug_class_name,
+        subsplits=True,
+    )
     else:
         train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
             create_data_splits(
-                kg_file,
-                out_dir,
-                subsplits,
-                test_specific_type,
-                kg_labels_file,
-                source_type,
-                target_type,
-            )
+            kg_file,
+            out_dir,
+            kg_labels_file,
+            drug_class_name,
+            subsplits=False,
+        )
         )
 
         main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
@@ -314,7 +278,7 @@ def kg_embedding(
         out_dir=out_dir,
         kg_labels_file=kg_labels_file,
         best_out_file=best_out_file,
-        with_annotation=with_annotation,
+        with_annotation=True,
         subsplits=subsplits,
         training_df=train_df,
         testing_df=test_df,
@@ -324,103 +288,80 @@ def kg_embedding(
         all_out_file=all_out_file,
     )
     # scoring
-    if with_scoring:
-        best_test_pred = pd.read_csv(f"{out_dir}/{model_name}/{best_out_file}")
-        percent_true = percents_true_predictions(best_test_pred)
-        mean, hits = mean_hits(
-            f"{out_dir}/{model_name}/{model_name}_best_model_results/results.json"
-        )
-        roc = multiclass_score_func(best_test_pred, main_test_df)
-        results_dict = {
-            "Percentage of true predictions for all relations": percent_true,
-            "roc_auc for all relations": roc,
-            "adjusted_arithmetic_mean_rank": mean,
-            "hits_at_10": hits,
-        }
-        json.dump(
-            results_dict,
-            open(
-                f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
-                "w",
-            ),
-            indent=4,
-        )
-    else:
-        percent_true = None
-        mean = None
-        hits = None
-        roc = None
-
+    best_test_pred = pd.read_csv(f"{out_dir}/{model_name}/{best_out_file}")
+    percent_true = percents_true_predictions(best_test_pred)
+    mean, hits = mean_hits(
+        f"{out_dir}/{model_name}/{model_name}_best_model_results/results.json"
+    )
+    roc = multiclass_score_func(best_test_pred, main_test_df)
+    results_dict = {
+        "Percentage of true predictions for all relations": percent_true,
+        "roc_auc for all relations": roc,
+        "adjusted_arithmetic_mean_rank": mean,
+        "hits_at_10": hits,
+    }
+    json.dump(
+        results_dict,
+        open(
+            f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
+            "w",
+        ),
+        indent=4,
+    )
     # specif types testing set predictions
-    if test_specific_type:
-        sp_test_df = pd.read_table(
-            f"{out_dir}/test_{source_type}_{target_type}.tsv",
-            header=None,
-            names=["source", "relation", "target"],
-        )
-        predict_diff_dataset(
-            model=pipeline_results.model,
-            model_name=model_name,
-            training_tf=train_tf,
-            main_test_df=sp_test_df,
-            out_dir=out_dir,
-            kg_labels_file=kg_labels_file,
-            best_out_file=f"{source_type}_{target_type}_{best_out_file}",
-            with_annotation=with_annotation,
-            subsplits=subsplits,
-            training_df=train_df,
-            testing_df=test_df,
-            validation_df=validation_df,
-            filter_training=filter_training,
-            predict_all=predict_all,
-            all_out_file=f"{source_type}_{target_type}_{all_out_file}",
-        )
-        if with_scoring:
-            best_test_pred_sp_type = pd.read_csv(
-                f"{out_dir}/{model_name}/{source_type}_{target_type}_{best_out_file}"
-            )
-            percent_true_sp_type = percents_true_predictions(best_test_pred_sp_type)
+    
+    sp_test_df = pd.read_table(
+        f"{out_dir}/test_{drug_class_name}_{drug_class_name}.tsv",
+        header=None,
+        names=["source", "relation", "target"],
+    )
+    predict_diff_dataset(
+        model=pipeline_results.model,
+        model_name=model_name,
+        training_tf=train_tf,
+        main_test_df=sp_test_df,
+        out_dir=out_dir,
+        kg_labels_file=kg_labels_file,
+        best_out_file=f"{drug_class_name}_{drug_class_name}_{best_out_file}",
+        with_annotation=True,
+        subsplits=subsplits,
+        training_df=train_df,
+        testing_df=test_df,
+        validation_df=validation_df,
+        filter_training=filter_training,
+        predict_all=predict_all,
+        all_out_file=f"{drug_class_name}_{drug_class_name}_{all_out_file}",
+    )
+    
+    best_test_pred_sp_type = pd.read_csv(
+        f"{out_dir}/{model_name}/{drug_class_name}_{drug_class_name}_{best_out_file}"
+    )
+    percent_true_sp_type = percents_true_predictions(best_test_pred_sp_type)
 
-            results_dict = {
-                "Percentage of true predictions for all relations": percent_true,
-                "roc_auc for all relations": roc,
-                "adjusted_arithmetic_mean_rank": mean,
-                "hits_at_10": hits,
-                f"Percentage of true predictions for {source_type}-{target_type} relations": percent_true_sp_type,
-            }
-            json.dump(
-                results_dict,
-                open(
-                    f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
-                    "w",
-                ),
-                indent=4,
-            )
+    results_dict = {
+        "Percentage of true predictions for all relations": percent_true,
+        "roc_auc for all relations": roc,
+        "adjusted_arithmetic_mean_rank": mean,
+        "hits_at_10": hits,
+        f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations": percent_true_sp_type,
+    }
+    json.dump(
+        results_dict,
+        open(
+            f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
+            "w",
+        ),
+        indent=4,
+    )
 
-            return (
-                train_tf,
-                percent_true,
-                mean,
-                hits,
-                roc,
-                percent_true_sp_type,
-            )
-        else:
-            percent_true = None
-            mean = None
-            hits = None
-            roc = None
-            percent_true_sp_type = None
-            return (
-                train_tf,
-                percent_true,
-                mean,
-                hits,
-                roc,
-                percent_true_sp_type,
-            )
-
-    return (train_tf, percent_true, mean, hits, roc)
+    return (
+        train_tf,
+        percent_true,
+        mean,
+        hits,
+        roc,
+        percent_true_sp_type,
+    )
 
 
 def get_embeddings(model, training_tf, kg_labels_file, output_all, output_drugs):
@@ -486,11 +427,9 @@ def run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir):
 def create_data_splits(
     kg_file,
     out_dir,
+    kg_labels_file,
+    drug_class_name,
     subsplits=True,
-    test_specific_type=False,
-    kg_labels_file=None,
-    source_type=None,
-    target_type=None,
 ):
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -542,15 +481,9 @@ def create_data_splits(
             triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
 
         print("all done :)")
-        if test_specific_type:
-            if all([kg_labels_file, source_type, target_type]):
-                generate_test_specific_type(
-                    kg_labels_file, main_test_df, source_type, target_type, out_dir
-                )
-            else:
-                raise TypeError(
-                    "One or many of kg_labels_file, test_df, source_type, target_type is/are not given"
-                )
+        generate_drug_test_set(
+            kg_labels_file, test_df, drug_class_name, out_dir
+        )
 
         return (
             train_df_ss,
@@ -562,15 +495,11 @@ def create_data_splits(
             main_test_df,
         )
 
-    if test_specific_type:
-        if all([kg_labels_file, source_type, target_type]):
-            generate_test_specific_type(
-                kg_labels_file, test_df, source_type, target_type, out_dir
-            )
-        else:
-            raise TypeError(
-                "One or many of kg_labels_file, test_df, source_type, target_type is/are not given"
-            )
+    
+    generate_drug_test_set(
+        kg_labels_file, test_df, drug_class_name, out_dir
+    )
+        
     for data in ["train_data", "test_data", "validation_data"]:
         triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
     print("all done :)")
@@ -636,8 +565,8 @@ def triplets_to_file(out_folder: str, df: pd.DataFrame, data_type):
     return
 
 
-def generate_test_specific_type(
-    kg_labels_file, test_df, source_type, target_type, out_dir
+def generate_drug_test_set(
+    kg_labels_file, test_df, drug_class_name, out_dir
 ):
 
     # Assign column names to existing DataFrame
@@ -654,12 +583,12 @@ def generate_test_specific_type(
     new_test_df["source_type"] = new_test_df["source"].apply(labels_dict.get)
     new_test_df["target_type"] = new_test_df["target"].apply(labels_dict.get)
     filtered_df = new_test_df[
-        (new_test_df["source_type"] == source_type)
-        & (new_test_df["target_type"] == target_type)
+        (new_test_df["source_type"] == drug_class_name)
+        & (new_test_df["target_type"] == drug_class_name)
     ]
     filtered_df = filtered_df[["source", "relation", "target"]]
     filtered_df.to_csv(
-        f"{out_dir}/test_{source_type}_{target_type}.tsv",
+        f"{out_dir}/test_{drug_class_name}_{drug_class_name}.tsv",
         index=False,
         header=False,
         sep="\t",
