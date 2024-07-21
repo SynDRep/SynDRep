@@ -1,8 +1,0 @@
-Total combinations: 11058 
-Total drugs in combinations: 1696 
-Total drugs in kg: 1570
-Total combinations to be added to kg: 2145
-Total drugs have combinations in kg: 333
-Total HAS_SYNERGISM_WITH combinations: 754
-Total HAS_ANTAGONISM_WITH combinations: 1388
-Total HAS_ADDITIVE_EFFECT_WITH combinations: 3

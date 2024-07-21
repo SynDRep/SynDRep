@@ -76,7 +76,7 @@ validation_cv_option = click.option(
     "-v",
     "--validation_cv",
     type=int,
-    default=5,
+    default=10,
     help="Number of cross-validation folds to use.",
     required=False,
 )
@@ -175,6 +175,7 @@ name_cid_dict_option = click.option(
     "--name_cid_dict",
     type=click.Path(exists=True),
     help="Path to the name_cid_dict file.",
+    default=None,
     required=False,
 )
 
@@ -239,8 +240,8 @@ def enriched_kg(
     kg_drug_file,
     out_dir,
     combos_folder,
-    name_cid_dict=None,
-    scoring_method="ZIP",
+    name_cid_dict,
+    scoring_method,
 ):
     """Produces an enriched KG with drug-drug combinations."""
     if name_cid_dict:
@@ -342,18 +343,17 @@ def embedding_and_prediction(
 
 @main.command()
 @best_out_file_option
+@combos_folder_option
 @config_path_option
 @device_option
 @drug_class_name_option
+@em_model_option
 @filter_training_option
 @kg_drug_file_option
 @kg_file_option
 @kg_labels_file_option
 @method_option
 @ml_models_option
-@nBits_option
-@radius_option
-@method_option
 @nBits_option
 @name_cid_dict_option
 @optimizer_option
@@ -390,6 +390,9 @@ def run_syndrep(
     subsplits,
     validation_cv,
 ):
+    """
+    Does the main function of SynDRep
+    """
 
     run_SynDRep(
         best_out_file=best_out_file,

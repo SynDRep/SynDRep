@@ -81,7 +81,7 @@ $ pip install -e .
 | GEFITINIB | 123631 | THIOGUANINE | 2723601 | 3.03 | -2.67 | 1.01 | -8.43 | DrugcombDB | 168014 |
 |Crizotinib | 11626560 | MITHRAMYCIN | 163659 | 4.23 | 5.73 | 4.46 | -0.33 | DrugcombPortal | 355424 |
 
-**Note:** The data must be in a comma separated file format. Combination data must be kept in a separate folder containing only the CSV files of combinations. Combinations from different databases can be added to this folder as separate files and they will be merged together.
+**Note:** The data must be in a comma separated file format. Combination data must be kept in a separate folder containing only the CSV files of combinations. Combinations from different databases can be added to this folder as separate CSV files and they will be merged together.
 
 ### Knowledge Graph
 
