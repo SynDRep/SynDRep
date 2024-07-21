@@ -40,7 +40,7 @@ dependencies = [
     "requests",
     "torch",
     "rdkit",
-    "matplotlib",""
+    "matplotlib"
 ]
 
 [tool.setuptools.packages.find]
