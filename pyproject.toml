@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-    "numpy>=2.0.0",
+    "numpy",
     "click",
     "pandas",
     "scikit-learn",
@@ -43,10 +43,6 @@ dependencies = [
     "rdkit",
     "matplotlib"
 ]
-
-[build-system]
-requires = ["setuptools>=42", "wheel", "numpy>=2.0.0", "pybind11>=2.12"]
-build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
