@@ -87,25 +87,25 @@ def embed_and_predict(
         pred_df = predict_target(
             model=model, head=str(head), tail=str(tail), triples_factory=tf
         ).df
-        pred_df["head_label"] = str(head)
-        pred_df["tail_label"] = str(tail)
+        pred_df.loc[:, "Drug1_name"] = str(head)
+        pred_df.loc[:, "Drug2_name"] = str(tail)
         # add to list of data frames
         df_list_all.append(pred_df)
         # add the best 1 to another df
-        pred_df = pred_df.head(1)
-        df_list_best.append(pred_df)
+        pred_df_best = pred_df.head(1)
+        df_list_best.append(pred_df_best)
 
         if pred_reverse:
             reverse_pred_df = predict_target(
                 model=model, head=str(tail), tail=str(head), triples_factory=tf
             ).df
-            pred_df["head_label"] = str(tail)
-            pred_df["tail_label"] = str(head)
+            reverse_pred_df.loc[:, "Drug1_name"] = str(tail)
+            reverse_pred_df.loc[:, "Drug2_name"] = str(head)
             # add to list of data frames
             df_list_all.append(reverse_pred_df)
             # add the best 1 to another df
-            reverse_pred_df = reverse_pred_df.head(1)
-            df_list_best.append(reverse_pred_df)
+            reverse_pred_df_best= reverse_pred_df.head(1)
+            df_list_best.append(reverse_pred_df_best)
 
     df_all = pd.concat(df_list_all, ignore_index=True).reset_index(drop=True)
     df_best = pd.concat(df_list_best, ignore_index=True).reset_index(drop=True)
@@ -113,14 +113,6 @@ def embed_and_predict(
     if sorted_predictions:
         df_best.sort_values(by=["score"], ascending=False, inplace=True)
 
-    for df in [df_all, df_best]:
-        df.rename(
-            columns={
-                "head_label": "Drug1_name",
-                "tail_label": "Drug2_name",
-            },
-            inplace=True,
-        )
     if all_drug_drug_predictions:
         df_all.to_csv(
             f"{out_dir}/{best_model}/{best_model}_drug_drug_predictions_all.csv",
@@ -130,8 +122,8 @@ def embed_and_predict(
         f"{out_dir}/{best_model}/{best_model}_drug_drug_predictions_best.csv",
         index=False,
     )
-
     return df_all, df_best
+
 
 
 def compare_embeddings(
