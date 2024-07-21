@@ -27,7 +27,7 @@ def predict_diff_dataset(
 ):
 
     labels = pd.read_table(kg_labels_file, dtype=str)
-    labels_dict = dict(zip(labels["name"], labels["Type"]))
+    labels_dict = dict(zip(labels["Name"], labels["Type"]))
     columns = ["source", "relation", "target"]
     main_test_df.columns = columns
 

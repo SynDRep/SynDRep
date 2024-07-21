@@ -376,7 +376,7 @@ def get_embeddings(model, training_tf, kg_labels_file, output_all, output_drugs)
 
     # adding labels
     labels = pd.read_table(kg_labels_file, dtype=str)
-    name_type_dict = dict(zip(labels["name"], labels["Type"]))
+    name_type_dict = dict(zip(labels["Name"], labels["Type"]))
 
     embeddings_df["entity"] = embeddings_df["entity"].astype(str)
     embeddings_df["entity_type"] = embeddings_df["entity"].apply(name_type_dict.get)
@@ -567,7 +567,7 @@ def generate_drug_test_set(
 
     # get a dictionary of labels
     labels = pd.read_table(f"{kg_labels_file}", dtype=str)
-    labels_dict = dict(zip(labels["name"], labels["Type"]))
+    labels_dict = dict(zip(labels["Name"], labels["Type"]))
 
     test_df["source"] = test_df["source"].astype(str)
     test_df["target"] = test_df["target"].astype(str)

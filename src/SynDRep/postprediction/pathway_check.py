@@ -103,7 +103,7 @@ def get_disease_neighbors(
     """ 
 
     # get dictionary of types
-    Types_dict = dict(zip(kg_labels["name"], kg_labels["Type"]))
+    Types_dict = dict(zip(kg_labels["Name"], kg_labels["Type"]))
 
     # get neighbors
     neighbors_type = {}
@@ -222,7 +222,7 @@ def get_protein_neighbors(
     """
 
     # get dictionary of types
-    Types_dict = dict(zip(kg_labels["node_id"], kg_labels["Type"]))
+    Types_dict = dict(zip(kg_labels["Name"], kg_labels["Type"]))
 
     # get neighbors
     neighbors_type = {}
