@@ -6,10 +6,10 @@ import json
 from typing import List
 import click
 import pandas as pd
-from .combos_preparation import generate_enriched_kg
-from .embedding import embed_and_predict
-from .ML import classify_data
-from .main_function import run_SynDRep
+from SynDRep.combos_preparation import generate_enriched_kg
+from SynDRep.embedding import embed_and_predict
+from SynDRep.ML import classify_data
+from SynDRep.main_function import run_SynDRep
 
 
 @click.group()
@@ -19,7 +19,7 @@ def main() -> None:
 
 kg_file_option = click.option(
     "-k",
-    "--kg_file",
+    "--kg-file",
     type=click.Path(exists=True),
     help="Path to the KG tsv-file.",
     required=True,
@@ -28,7 +28,7 @@ kg_file_option = click.option(
 
 kg_drug_file_option = click.option(
     "-d",
-    "--kg_drug_file",
+    "--kg-drug-file",
     type=click.Path(exists=True),
     help="Path to the KG drugs csv-file.",
     required=True,
@@ -36,7 +36,7 @@ kg_drug_file_option = click.option(
 
 out_dir_option = click.option(
     "-o",
-    "--out_dir",
+    "--out-dir",
     type=click.Path(exists=False),
     help="Path to the output directory.",
     required=True,
@@ -44,20 +44,20 @@ out_dir_option = click.option(
 
 data_for_training_option = click.option(
     "-t",
-    "--data_for_training",
+    "--data-for-training",
     type=click.Path(exists=True),
     help="Path to the data_for_trining csv-file.",
     required=True,
 )
 data_for_prediction_option = click.option(
     "-p",
-    "--data_for_prediction",
+    "--data-for-prediction",
     type=click.Path(exists=True),
     help="Path to the data_for_prediction csv-file.",
     required=True,
 )
 optimizer_option = click.option(
-    "--optimizer_name",
+    "--optimizer-name",
     type=click.Choice(["grid_search", "random_search", "bayesian_search"]),
     default="grid_search",
     help="Optimizer to use.",
@@ -65,7 +65,7 @@ optimizer_option = click.option(
 )
 ml_models_option = click.option(
     "-m",
-    "--model_names",
+    "--ml-model-names",
     multiple=True,
     type=str,
     default=["random_forest"],
@@ -74,7 +74,7 @@ ml_models_option = click.option(
 )
 validation_cv_option = click.option(
     "-v",
-    "--validation_cv",
+    "--validation-cv",
     type=int,
     default=10,
     help="Number of cross-validation folds to use.",
@@ -82,7 +82,7 @@ validation_cv_option = click.option(
 )
 scoring_metrics_option = click.option(
     "-s",
-    "--scoring_metrics",
+    "--scoring-metrics",
     multiple=True,
     type=str,
     default=["roc_auc"],
@@ -91,7 +91,7 @@ scoring_metrics_option = click.option(
 )
 rand_labels_option = click.option(
     "-r",
-    "--rand_labels",
+    "--rand-labels",
     type=bool,
     default=False,
     help="Whether to schuffle the labels randomly.",
@@ -100,7 +100,7 @@ rand_labels_option = click.option(
 
 em_model_option = click.option(
     "-e",
-    "--em_model_names",
+    "--em-models-names",
     multiple=True,
     type=str,
     default=["TransE"],
@@ -109,7 +109,7 @@ em_model_option = click.option(
 )
 
 best_out_file_option = click.option(
-    "--best_out_file",
+    "--best-out-file",
     type=str,
     default="predictions_best.csv",
     help="Output file for best predictions.",
@@ -117,7 +117,7 @@ best_out_file_option = click.option(
 )
 
 config_path_option = click.option(
-    "--config_path",
+    "--config-path",
     type=click.Path(exists=True),
     default=None,
     help="Path to the config file.",
@@ -149,7 +149,7 @@ drug_class_name_option = click.option(
 )
 
 pred_reverse_option = click.option(
-    "--pred_reverse",
+    "--pred-reverse",
     type=bool,
     default=True,
     help="Whether to add reverse predictions.",
@@ -172,7 +172,7 @@ kg_labels_file_option = click.option(
 
 name_cid_dict_option = click.option(
     "-n",
-    "--name_cid_dict",
+    "--name-cid-dict",
     type=click.Path(exists=True),
     help="Path to the name_cid_dict file.",
     default=None,
@@ -181,7 +181,7 @@ name_cid_dict_option = click.option(
 
 scoring_method_option = click.option(
     "-s",
-    "--Scoring_method",
+    "--Scoring-method",
     type=click.Choice(["ZIP", "HSA", "Bliss", "Loewe"]),
     default="ZIP",
     help="Scoring method to use.",
@@ -190,7 +190,7 @@ scoring_method_option = click.option(
 
 combos_folder_option = click.option(
     "-c",
-    "--combos_folder",
+    "--combos-folder",
     type=click.Path(exists=True),
     help="Path to the combos folder.",
     required=True,
@@ -378,7 +378,7 @@ def run_syndrep(
     kg_labels_file,
     method,
     ml_model_names,
-    nBits,
+    nbits,
     name_cid_dict,
     optimizer_name,
     out_dir,
@@ -393,7 +393,9 @@ def run_syndrep(
     """
     Does the main function of SynDRep
     """
-
+    if name_cid_dict:
+        name_cid_dict = json.load(open(name_cid_dict))
+        
     run_SynDRep(
         best_out_file=best_out_file,
         combos_folder=combos_folder,
@@ -407,7 +409,7 @@ def run_syndrep(
         kg_labels_file=kg_labels_file,
         method=method,
         ml_model_names=ml_model_names,
-        nBits=nBits,
+        nBits=nbits,
         name_cid_dict=name_cid_dict,
         optimizer_name=optimizer_name,
         out_dir=out_dir,

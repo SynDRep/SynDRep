@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
-from .combos_preparation import generate_enriched_kg
-from .embedding import compare_embeddings, embed_and_predict
-from .ML import classify_data
-from .drug_data import get_graph_and_physicochem_properties
-from .drug_data import get_physicochem_prop
+from SynDRep.combos_preparation import generate_enriched_kg
+from SynDRep.embedding import compare_embeddings, embed_and_predict
+from SynDRep.ML import classify_data
+from SynDRep.drug_data import get_graph_and_physicochem_properties
+from SynDRep.drug_data import get_physicochem_prop
 from tqdm import tqdm
 
 
@@ -43,15 +43,16 @@ def run_SynDRep(
     sorted_predictions=True,
     subsplits=True,
 ):
-    generate_enriched_kg(
-        combos_folder := combos_folder,
+    
+    if method == "Embeeding_only":
+        generate_enriched_kg(
+        combos_folder = combos_folder,
         kg_drug_file=kg_drug_file,
         kg_file=kg_file,
         name_cid_dict=name_cid_dict,
         out_dir=out_dir,
         scoring_method=scoring_method,
-    )
-    if method == "Embeeding_only":
+        )
 
         prediction_all, prediction_best = embed_and_predict(
             kg_drug_file=kg_drug_file,
