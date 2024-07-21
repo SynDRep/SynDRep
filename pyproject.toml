@@ -28,6 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
+    "numpy>=2.0.0",
     "click",
     "pandas",
     "scikit-learn",
