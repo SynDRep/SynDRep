@@ -63,7 +63,7 @@ For developers, the repository can be cloned from [GitHub](https://github.com/sy
 
 ```bash
 $ git clone https://github.com/SynDRep/SynDRep.git
-$ cd syndrep
+$ cd SynDRep
 $ pip install -e .
 ```
 
@@ -72,8 +72,9 @@ $ pip install -e .
 <!-- Read the [official docs](https://clep.readthedocs.io/en/latest/) for more information. -->
 
 ## Input Data Formats
+The following four files are required to run most of the SynDRep functions in the repository:
 
-### Drug combinations
+### 1. Drug combinations
 
 | Drug1_name    | Drug1_CID | Drug2_name | Drug2_CID | HSA | Bliss | Loewe | ZIP | Source_DB | DB_ID
 | --------- | -------- | -------- | -------- |  --------- | -------- | -------- | -------- | --------- | -------- | 
@@ -83,7 +84,7 @@ $ pip install -e .
 
 **Note:** The data must be in a comma separated file format. Combination data must be kept in a separate folder containing only the CSV files of combinations. Combinations from different databases can be added to this folder as separate CSV files and they will be merged together.
 
-### Knowledge Graph
+### 2. Knowledge Graph
 
 The graph format should be a modified version of the Edge List Format. Which looks as follows:
 
@@ -95,7 +96,7 @@ The graph format should be a modified version of the Edge List Format. Which loo
     
 **Note:** The data must be in a tab separated file format.
 
-### Knowledge Graph Labels
+### 3. Knowledge Graph Labels
 
 a file containing the nodes Name and types such as protein, gene, or drug.
 
@@ -107,7 +108,7 @@ a file containing the nodes Name and types such as protein, gene, or drug.
     
 **Note:** The data must be in a tab separated file format.
 
-### Knowledge Graph Drugs
+### 4. Knowledge Graph Drugs
 
 a file containing the drugs in KG.  It should be a CSV file containing all the names of drugs in KG. It shoud have "Drug_name" column and any other columns.
     
@@ -116,35 +117,35 @@ a file containing the drugs in KG.  It should be a CSV file containing all the n
 
 **Note:** These are very basic commands for SynDRep, and the detailed options for each command can be found in the [documentation](#documentation)
 
-1. **Enriched Kg generation**
+1. **Run the SynDRep tool**
+The following command generates predicted synergy based on the method chosen.
+
+```bash
+$ SynDRep run-syndrep -bof <BEST_OUT_FILE> -cf <COMBOS_FOLDER> -cp <CONFIG_PATH> -d <DEVICE> -dcn <DRUG_CLASS_NAME> -emn <EM_MODELS_NAME> -ft <FILTER_TRAINING_SET> -kdf <KG_DRUG_FILE> -kf <KG_FILE> -klf <KG_LABELS_FILE> -m <METHOD_FOR_SYNDREP> -mmn <ML_MODELS_NAME> -nb <NUMBER_OF_BITS_FOR_MORGAN_FP> -ncd <NAME_CID_DICTIONARY>  -on <OPTIMIZER_NAME> -o <OUTPUT_DIR> -pr <PREDICT_REVERSE_RELATION_BETWEEN_DRUGS:BOOL> -r <RADIUS_FOR_MORGAN_FP> -rl <RANDOM_LABELS_FOR_ML> -sys <SYNERGY_SCORING_MODEL> -sml <SCORING_METRIC_FOR_ML> -s <MAKE_SUBSPLITS> -vcv <VALIDATION_CV_FOR_ML>
+```
+
+2. **Enriched Kg generation**
 The following command generates a KG enriched with drug-drug combinations from KG, drugs, and combination files.
 
 ```bash
-$ syndrep enriched-kg -o <OUTPUT_DIR> -k <KG_TSV_FILE> -d <KG_DRUGS_CSV_FILE> -n <NAME_CID_DICTIONARY> -c <COMBINATIONS_FOLDER>
-```
-<!-- 
-2. **Graph Generation**
-The following command generates the patient-gene network based on the method chosen (Interaction_network).
-
-```bash
-$ clep embedding generate-network --data <SCORED_DATA_FILE> --method interaction_network --ret_summary --out <OUTPUT_DIR>
+$ SynDRep enriched-kg -o <OUTPUT_DIR> -kf <KG_FILE> --kdf <KG_DRUG_FILE> -ncd <NAME_CID_DICTIONARY> -cf <COMBOS_FOLDER> 
 ```
 
-3. **Knowledge Graph Embedding**
+3. **Knowledge Graph Embedding only**
 
-The following command generates the embedding of the network passed to it.
+The following command generates the embedding of the knowledge graph passed to it along with presiction of relation between the drugs in this KG.
 
 ```bash
-$ clep embedding kge --data <NETWORK_FILE> --design <DESIGN_FILE> --model_config <MODEL_CONFIG.json> --train_size 0.8 --validation_size 0.1 --out <OUTPUT_DIR>
+$ SynDRep embedding-and-prediction -bof <BEST_OUT_FILE> cp <CONFIG_PATH> -dcn <DRUG_CLASS_NAME> -emn <EM_MODELS_NAME> --ft <FILTER_TRAINING_SET> -ged <GET_EMBEDDINGS:BOOL> -kdf <KG_DRUG_FILE> -kf <KG_FILE> -klf <KG_LABELS_FILE> -o <OUTPUT_DIR> -pr <PREDICT_REVERSE_RELATION_BETWEEN_DRUGS:BOOL>  s <MAKE_SUBSPLITS> 
 ```
 
 4. **Classification**
 
-The following command carries out classification on the given data file for a chosen model (Elastic Net) with 100 hyper-parameter optimization trials.
+The following command carries out classification on the given data file for training using chosen models, and produce prediction for the data file for prediction.
 
 ```bash
-$ clep classify --data <EMBEDDING_FILE> --model elastic_net --num-trials 100 --out <OUTPUT_DIR>
-``` -->
+$ SynDRep classify -dt <DATA_FOR_TRAINING_CSV_FILE> -dp <DATA_FOR_PREDICTION_CSV_FILE> -mmn <ML_MODELS_NAME> -on <OPTIMIZER_NAME> -o <OUTPUT_DIR> -rl <RANDOM_LABELS_FOR_ML> -sml <SCORING_METRIC_FOR_ML> -vcv <VALIDATION_CV_FOR_ML>
+```
 
 ## Issues
 

@@ -245,7 +245,7 @@ subsplits_option = click.option(
 )
 
 validation_cv_option = click.option(
-    "-cv",
+    "-vcv",
     "--validation-cv",
     type=int,
     default=10,
