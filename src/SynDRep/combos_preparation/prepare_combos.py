@@ -339,16 +339,14 @@ def get_cid(drug_name: str) -> int:
 
 
 def add_cid(
-    df:pd.DataFrame,
-    drug_name_column: str,
-    name_cid_dict: dict=None
-    ) -> Tuple[dict, pd.DataFrame]:
+    df: pd.DataFrame, drug_name_column: str, name_cid_dict: dict = None
+) -> Tuple[dict, pd.DataFrame]:
     """adds a column with drugs cid
 
     :param df: DataFrame with drug names
     :param drug_name_column: column name with drug names
     :param name_cid_dict: a dictionary of drug names to cid, defaults to None
-    
+
     :return: updated DataFrame with drugs cid and updated name_cid_dict
     """
 
@@ -374,7 +372,7 @@ def add_cid(
     return name_cid_dict, df
 
 
-def synergy_detection(value: float)-> str:
+def synergy_detection(value: float) -> str:
     """
     Returns the relationship between two drugs based on their synergy score
 
@@ -382,7 +380,7 @@ def synergy_detection(value: float)-> str:
 
     :return: the relationship between two drugs ("HAS_SYNERGISM_WITH", "HAS_ANTAGONISM_WITH", "HAS_ADDITIVE_EFFECT_WITH")
     """
-    
+
     if value > 0:
         return "HAS_SYNERGISM_WITH"
     elif value < 0:
