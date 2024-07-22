@@ -17,21 +17,168 @@ def main() -> None:
     """Run SynDRep."""
 
 
+best_out_file_option = click.option(
+    "-bof",
+    "--best-out-file",
+    type=str,
+    default="predictions_best.csv",
+    help="Output file for best predictions.",
+    required=False,
+)
+
+combos_folder_option = click.option(
+    "-cf",
+    "--combos-folder",
+    type=click.Path(exists=True),
+    help="Path to the combos folder.",
+    required=True,
+)
+
+config_path_option = click.option(
+    "-cp",
+    "--config-path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to the config file.",
+    required=False,
+)
+
+data_for_prediction_option = click.option(
+    "-dp",
+    "--data-for-prediction",
+    type=click.Path(exists=True),
+    help="Path to the data_for_prediction csv-file.",
+    required=True,
+)
+
+data_for_training_option = click.option(
+    "-dt",
+    "--data-for-training",
+    type=click.Path(exists=True),
+    help="Path to the data_for_trining csv-file.",
+    required=True,
+)
+
+device_option = click.option(
+    "-d",
+    "--device",
+    type=click.Choice(["cpu", "cuda"]),
+    default="cuda",
+    help="Device to use for computations",
+    required=False,
+)
+
+drug_class_name_option = click.option(
+    "-dcn",
+    "--drug-class-name",
+    type=str,
+    required=True,
+    help="Name of the drug class to predict embeddings for.",
+)
+
+em_model_option = click.option(
+    "-emn",
+    "--em-models-names",
+    multiple=True,
+    type=str,
+    default=["TransE"],
+    help='Models to use. can provide more than one of "TransE", "HolE", "TransR", "RotatE", "CompGCN", and "ComplEx".',
+    required=False,
+)
+
+filter_training_option = click.option(
+    "-ft",
+    "--filter-training",
+    type=bool,
+    default=False,
+    help="Filter training data from assesment of embedding models. Default: False",
+    required=False,
+)
+
+get_embeddings_option = click.option(
+    "-ged",
+    "--get-embeddings-data",
+    type=bool,
+    default=False,
+    help="Get embeddings data. Default: False",
+    required=False,
+)
+
+kg_drug_file_option = click.option(
+    "-kdf",
+    "--kg-drug-file",
+    type=click.Path(exists=True),
+    help="Path to the KG drugs csv-file.",
+    required=True,
+)
+
 kg_file_option = click.option(
-    "-k",
+    "-kf",
     "--kg-file",
     type=click.Path(exists=True),
     help="Path to the KG tsv-file.",
     required=True,
 )
 
-
-kg_drug_file_option = click.option(
-    "-d",
-    "--kg-drug-file",
+kg_labels_file_option = click.option(
+    "-klf",
+    "--kg-labels-file",
     type=click.Path(exists=True),
-    help="Path to the KG drugs csv-file.",
+    help="Path to the KG labels file.",
     required=True,
+)
+
+method_option = click.option(
+    "-m",
+    "--method",
+    type=click.Choice(
+        [
+            "Embeeding_only",
+            "Embeeding_then_ML",
+            "Data_extraction_then_ML",
+            "physicochemical_data_and_embedding_then_ML",
+        ]
+    ),
+    default="Embeeding_only",
+    help="Method to use for syndrep. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML",
+    required=False,
+)
+
+ml_models_option = click.option(
+    "-mmn",
+    "--ml-model-names",
+    multiple=True,
+    type=str,
+    default=["random_forest"],
+    help='Models to use. can provide more than one of "logistic_regression", "elastic_net", "svm", "random_forest", and "gradient_boost"',
+    required=False,
+)
+
+nBits_option = click.option(
+    "-nb",
+    "--nBits",
+    type=int,
+    default=2048,
+    help="Number of bits for the Morgan fingerprint.",
+    required=False,
+)
+
+name_cid_dict_option = click.option(
+    "-ncd",
+    "--name-cid-dict",
+    type=click.Path(exists=True),
+    help="Path to the name_cid_dict file.",
+    default=None,
+    required=False,
+)
+
+optimizer_option = click.option(
+    "-on",
+    "--optimizer-name",
+    type=click.Choice(["grid_search", "random_search", "bayesian_search"]),
+    default="grid_search",
+    help="Optimizer to use.",
+    required=False,
 )
 
 out_dir_option = click.option(
@@ -42,55 +189,26 @@ out_dir_option = click.option(
     required=True,
 )
 
-data_for_training_option = click.option(
-    "-t",
-    "--data-for-training",
-    type=click.Path(exists=True),
-    help="Path to the data_for_trining csv-file.",
-    required=True,
-)
-data_for_prediction_option = click.option(
-    "-p",
-    "--data-for-prediction",
-    type=click.Path(exists=True),
-    help="Path to the data_for_prediction csv-file.",
-    required=True,
-)
-optimizer_option = click.option(
-    "--optimizer-name",
-    type=click.Choice(["grid_search", "random_search", "bayesian_search"]),
-    default="grid_search",
-    help="Optimizer to use.",
+pred_reverse_option = click.option(
+    "-pr",
+    "--pred-reverse",
+    type=bool,
+    default=True,
+    help="Whether to add reverse predictions.",
     required=False,
 )
-ml_models_option = click.option(
-    "-m",
-    "--ml-model-names",
-    multiple=True,
-    type=str,
-    default=["random_forest"],
-    help='Models to use. can provide more than one of "logistic_regression", "elastic_net", "svm", "random_forest", and "gradient_boost"',
-    required=False,
-)
-validation_cv_option = click.option(
-    "-v",
-    "--validation-cv",
-    type=int,
-    default=10,
-    help="Number of cross-validation folds to use.",
-    required=False,
-)
-scoring_metrics_option = click.option(
-    "-s",
-    "--scoring-metrics",
-    multiple=True,
-    type=str,
-    default=["roc_auc"],
-    help='Scoring metric to use.can provide more than one of "accuracy", "f1_weighted", "f1", "roc_auc", "f1_macro", and "f1_micro"',
-    required=False,
-)
-rand_labels_option = click.option(
+
+radius_option = click.option(
     "-r",
+    "--radius",
+    type=float,
+    default=6,
+    help="Radius for the Morgan fingerprint.",
+    required=False,
+)
+
+rand_labels_option = click.option(
+    "-rl",
     "--rand-labels",
     type=bool,
     default=False,
@@ -98,89 +216,8 @@ rand_labels_option = click.option(
     required=False,
 )
 
-em_model_option = click.option(
-    "-e",
-    "--em-models-names",
-    multiple=True,
-    type=str,
-    default=["TransE"],
-    help='Models to use. can provide more than one of "TransE", "HolE", "TransR", "RotatE", "CompGCN", and "ComplEx".',
-    required=False,
-)
-
-best_out_file_option = click.option(
-    "--best-out-file",
-    type=str,
-    default="predictions_best.csv",
-    help="Output file for best predictions.",
-    required=False,
-)
-
-config_path_option = click.option(
-    "--config-path",
-    type=click.Path(exists=True),
-    default=None,
-    help="Path to the config file.",
-    required=False,
-)
-
-filter_training_option = click.option(
-    "-f",
-    "--filter-training",
-    type=bool,
-    default=False,
-    help="Filter training data from assesment of embedding models. Default: False",
-    required=False,
-)
-
-get_embeddings_option = click.option(
-    "--get-embeddings-data",
-    type=bool,
-    default=False,
-    help="Get embeddings data. Default: False",
-    required=False,
-)
-
-drug_class_name_option = click.option(
-    "--drug-class-name",
-    type=str,
-    required=True,
-    help="Name of the drug class to predict embeddings for.",
-)
-
-pred_reverse_option = click.option(
-    "--pred-reverse",
-    type=bool,
-    default=True,
-    help="Whether to add reverse predictions.",
-    required=False,
-)
-subsplits_option = click.option(
-    "--subsplits",
-    type=bool,
-    default=True,
-    help="Whether to use subsplits for training and validation. Default: True",
-    required=False,
-)
-
-kg_labels_file_option = click.option(
-    "--kg-labels-file",
-    type=click.Path(exists=True),
-    help="Path to the KG labels file.",
-    required=True,
-)
-
-name_cid_dict_option = click.option(
-    "-n",
-    "--name-cid-dict",
-    type=click.Path(exists=True),
-    help="Path to the name_cid_dict file.",
-    default=None,
-    required=False,
-)
-
 scoring_method_option = click.option(
-    "-s",
+    "-sys",
     "--Scoring-method",
     type=click.Choice(["ZIP", "HSA", "Bliss", "Loewe"]),
     default="ZIP",
@@ -188,45 +225,34 @@ scoring_method_option = click.option(
     required=False,
 )
 
-combos_folder_option = click.option(
-    "-c",
-    "--combos-folder",
-    type=click.Path(exists=True),
-    help="Path to the combos folder.",
-    required=True,
-)
-
-device_option = click.option(
-    "--device",
-    type=click.Choice(["cpu", "cuda"]),
-    default="cuda",
-    help="Device to use for computations",
+scoring_metrics_option = click.option(
+    "-sml",
+    "--scoring-metrics",
+    multiple=True,
+    type=str,
+    default=["roc_auc"],
+    help='Scoring metric to use.can provide more than one of "accuracy", "f1_weighted", "f1", "roc_auc", "f1_macro", and "f1_micro"',
     required=False,
 )
 
-method_option = click.option(
-    "--method",
-    type=click.Choice(["Embeeding_only", "Embeeding_then_ML", "Data_extraction_then_ML", "physicochemical_data_and_embedding_then_ML"]),
-    default="Embeeding_only",
-    help="Method to use for syndrep. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML",
+subsplits_option = click.option(
+    "-s",
+    "--subsplits",
+    type=bool,
+    default=True,
+    help="Whether to use subsplits for training and validation. Default: True",
     required=False,
 )
 
-nBits_option = click.option(
-    "--nBits",
+validation_cv_option = click.option(
+    "-cv",
+    "--validation-cv",
     type=int,
-    default=2048,
-    help="Number of bits for the Morgan fingerprint.",
+    default=10,
+    help="Number of cross-validation folds to use.",
     required=False,
 )
 
-radius_option = click.option(
-    "--radius",
-    type=float,
-    default=6,
-    help="Radius for the Morgan fingerprint.",
-    required=False,
-)
 
 @main.command()
 @kg_file_option
@@ -395,7 +421,7 @@ def run_syndrep(
     """
     if name_cid_dict:
         name_cid_dict = json.load(open(name_cid_dict))
-        
+
     run_SynDRep(
         best_out_file=best_out_file,
         combos_folder=combos_folder,
