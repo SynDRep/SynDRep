@@ -1,58 +1,83 @@
 # -*- coding: utf-8 -*-
 """do the embedding of enriched KG"""
 import json
-import pathlib
 from itertools import combinations
+from pathlib import Path
+from typing import List, Tuple
 
 import pandas as pd
 import torch
-from pykeen.hpo.hpo import hpo_pipeline_from_config
-from pykeen.pipeline import pipeline_from_config
+from pykeen.hpo.hpo import HpoPipelineResult, hpo_pipeline_from_config
+from pykeen.models.base import Model
+from pykeen.pipeline import PipelineResult, pipeline_from_config
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
 from tqdm import tqdm
 
-from SynDRep.embedding.prediction import gz_to_dict
-from SynDRep.embedding.prediction import predict_diff_dataset
-from SynDRep.embedding.scoring import draw_graph
-from SynDRep.embedding.scoring import mean_hits
-from SynDRep.embedding.scoring import multiclass_score_func
-from SynDRep.embedding.scoring import percents_true_predictions
 from SynDRep.embedding.models_config import get_config
+from SynDRep.embedding.prediction import gz_to_dict, predict_diff_dataset
+from SynDRep.embedding.scoring import (
+    draw_graph,
+    mean_hits,
+    multiclass_score_func,
+    percents_true_predictions,
+)
 
 
 def embed_and_predict(
-    kg_drug_file,
-    models_names: list,
-    kg_file,
-    out_dir,
-    kg_labels_file,
-    drug_class_name,
-    all_drug_drug_predictions=False,
+    drug_class_name: str,
+    kg_drug_file: str | Path,
+    kg_file: str | Path,
+    kg_labels_file: str | Path,
+    models_names: List[str],
+    out_dir: str | Path,
+    all_drug_drug_predictions: bool = False,
     all_out_file: str = None,
     best_out_file: str = "predictions_best.csv",
-    config_path=None,
-    filter_training=False,
-    get_embeddings_data=False,
-    pred_reverse=True,
-    predict_all_test=False,
-    sorted_predictions=True,
-    subsplits=True,
-):
+    config_path: str | Path = None,
+    filter_training: bool = False,
+    get_embeddings_data: bool = False,
+    pred_reverse: bool = True,
+    predict_all_test: bool = False,
+    sorted_predictions: bool = True,
+    subsplits: bool = True,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Make embedding using different models and determines the best nodel then use it for prediction.
+
+    :param drug_class_name: the string indicating the drug class in th KG.
+    :param kg_drug_file: the path to the csv file containing drug names.
+    :param kg_file: the path to the original KG file.
+    :param kg_labels_file: the path to the csv file containing labels of the nodes in the graph.
+    :param models_names: a list of model names.
+    :param out_dir: the path to the output directory.
+    :param all_drug_drug_predictions: a boolean indicating whether to produce the all predicted relations with score for a pair of drugs or just the best scoring relation. Defaults to False.
+    :param all_out_file: the path to save all predicted relations with score for a pair of drugs of the test set if predict_all_test is True. Defaults to None.
+    :param best_out_file: the path to save the best predicted relation with score for a pair of drugs of the test set. Defaults to "predictions_best.csv".
+    :param config_path: the path to the configuration file for hyperparameter optimization. Defaults to None.
+    :param filter_training: a boolean indicating whether to filter the training data. Defaults to False.
+    :param get_embeddings_data: a boolean indicating whether to get embeddings data. Defaults to False.
+    :param pred_reverse: a boolean indicating whether to predict  the reverse relations. Defaults to True.
+    :param predict_all_test: a boolean indicating whether to predict all test set relations or just the best scoring relation. Defaults to False.
+    :param sorted_predictions: a boolean indicating whether to sort the predictions. Defaults to True.
+    :param subsplits: a boolean indicating whether to use subsplits for training. Defaults to True.
+
+    :return: DataFrame containing all the relation prediction for each pair of drugs, and a DataFrame containing the best predicted relation for each pair drugs.
+    """
     best_model = compare_embeddings(
-        models_names=models_names,
-        kg_file=kg_file,
-        out_dir=out_dir,
-        drug_class_name=drug_class_name,
+        all_out_file=all_out_file,
         best_out_file=best_out_file,
         config_path=config_path,
-        subsplits=subsplits,
-        kg_labels_file=kg_labels_file,
-        predict_all=predict_all_test,
-        all_out_file=all_out_file,
+        drug_class_name=drug_class_name,
+        enriched_kg=True,
         filter_training=filter_training,
         get_embeddings_data=get_embeddings_data,
-        enriched_kg=True
+        kg_file=kg_file,
+        kg_labels_file=kg_labels_file,
+        models_names=models_names,
+        out_dir=out_dir,
+        predict_all=predict_all_test,
+        subsplits=subsplits,
     )
 
     model = torch.load(
@@ -128,36 +153,55 @@ def embed_and_predict(
 
 
 def compare_embeddings(
-    models_names: list,
-    kg_file,
-    out_dir,
-    kg_labels_file,
-    drug_class_name,
-    best_out_file: str = "predictions_best.csv",
-    config_path=None,
-    subsplits=True,
-    predict_all=False,
+    drug_class_name: str,
+    kg_file: str | Path,
+    kg_labels_file: str | Path,
+    models_names: List[str],
+    out_dir: str | Path,
     all_out_file: str = None,
-    filter_training=False,
-    get_embeddings_data=False,
-    enriched_kg = False,
-):
+    best_out_file: str = "predictions_best.csv",
+    config_path: str | Path = None,
+    enriched_kg: bool = False,
+    filter_training: bool = False,
+    get_embeddings_data: bool = False,
+    predict_all: bool = False,
+    subsplits: bool = True,
+) -> str:
+    """
+    Compare embeddings using different models and determine the best one.
+
+    :param drug_class_name: the string indicating the drug class in th KG.
+    :param kg_file: the path to the KG file.
+    :param kg_labels_file: the path to the KG labels file.
+    :param models_names: a list of model names to compare.
+    :param out_dir: the output directory.
+    :param all_out_file: the file to save all predictions.Defaults to None.
+    :param best_out_file: the file to save the best predictions. Defaults to "predictions_best.csv".
+    :param config_path: the path to the configuration file. Defaults to None.
+    :param enriched_kg: whether to use enriched KG. Defaults to False.
+    :param filter_training: whether to filter the training data. Defaults to False.
+    :param get_embeddings_data: whether to get embeddings data. Defaults to False.
+    :param predict_all: whether to produce the all predicted relations with score for a pair of drugs or just the best scoring relation. Defaults to False.
+    :param subsplits: whether to use subsplits. Defaults to True.
+
+    :return: the name of the best model.
+    """
 
     results = []
 
     for model_name in models_names:
         embedding_results = kg_embedding(
-            kg_file=kg_file,
-            out_dir=out_dir,
-            model_name=model_name,
-            drug_class_name=drug_class_name,
+            all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
-            subsplits=subsplits,
-            kg_labels_file=kg_labels_file,
-            predict_all=predict_all,
-            all_out_file=all_out_file,
+            drug_class_name=drug_class_name,
             filter_training=filter_training,
+            kg_file=kg_file,
+            kg_labels_file=kg_labels_file,
+            model_name=model_name,
+            out_dir=out_dir,
+            predict_all=predict_all,
+            subsplits=subsplits,
         )
         result = [model_name]
         result.extend(embedding_results[1:])
@@ -181,9 +225,7 @@ def compare_embeddings(
         ]
     else:
         max_score_row = results_df.loc[
-            results_df[
-                "Percentage of true predictions for all relations"
-            ].idxmax()
+            results_df["Percentage of true predictions for all relations"].idxmax()
         ]
     best_model = max_score_row["model"]
     df = pd.read_csv(f"{out_dir}/Models_results.csv")
@@ -212,18 +254,35 @@ def compare_embeddings(
 
 
 def kg_embedding(
-    kg_file,
-    out_dir,
-    model_name,
-    kg_labels_file,
-    drug_class_name,
-    best_out_file: str = "predictions_best.csv",
-    config_path=None,
-    subsplits=True,
-    predict_all=False,
+    drug_class_name: str,
+    kg_file: str | Path,
+    kg_labels_file: str | Path,
+    model_name: str,
+    out_dir: str | Path,
     all_out_file: str = None,
-    filter_training=False,
-):
+    best_out_file: str = "predictions_best.csv",
+    config_path: str | Path = None,
+    filter_training: bool = False,
+    predict_all: bool = False,
+    subsplits: bool = True,
+) -> Tuple[TriplesFactory, float, float, float, float, float]:
+    """
+    Embeds the knowledge graph using the specified model and performs KG evaluation.
+
+    :param drug_class_name: the string indicating the drug class in th KG.
+    :param kg_file: the path to the KG file.
+    :param kg_labels_file: the path to the KG labels file.
+    :param model_name: the name of the model to use for embedding.
+    :param out_dir: the output directory for the results.
+    :param all_out_file: the output file for all predictions. Defaults to None.
+    :param best_out_file: the output file for the best predictions. Defaults to "predictions_best.csv".
+    :param config_path: the path to the configuration file for the model. Defaults to None.
+    :param filter_training: whether to filter the training data. Defaults to False.
+    :param predict_all: whether to produce the all predicted relations with score for a pair of drugs or just the best scoring relation. Defaults to False.
+    :param subsplits: whether to use subsplits. Defaults to True.
+
+    :return: a TriplesFactory object for the training data, the percentage of true predictions for all relations, the adjusted arithmetic mean rank, hits@10, ROC AUC for all relations, and the percentage of true predictions for the specified drug-drug relation
+    """
 
     # make the splits
     if subsplits:
@@ -243,14 +302,20 @@ def kg_embedding(
             subsplits=True,
         )
     else:
-        train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
-            create_data_splits(
-                kg_file,
-                out_dir,
-                kg_labels_file,
-                drug_class_name,
-                subsplits=False,
-            )
+        (
+            train_df,
+            test_df,
+            validation_df,
+            train_tf,
+            test_tf,
+            validation_tf,
+            main_test_df,
+        ) = create_data_splits(
+            kg_file,
+            out_dir,
+            kg_labels_file,
+            drug_class_name,
+            subsplits=False,
         )
 
         main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
@@ -371,7 +436,24 @@ def kg_embedding(
     )
 
 
-def get_embeddings(model, training_tf, kg_labels_file, output_all, output_drugs):
+def get_embeddings(
+    kg_labels_file: str | Path,
+    model: Model,
+    output_all: str,
+    output_drugs: str,
+    training_tf: TriplesFactory,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Get embeddings for all entities in the knowledge graph.
+
+    :param kg_labels_file: the path to the KG labels file.
+    :param model: the trained model.
+    :param output_all: the path to save the embeddings for all entities.
+    :param output_drugs: the path to save the embeddings for drug entities only.
+    :param training_tf: the training triples factory.
+
+    :return: DataFrame containing all entity embeddings and drug embeddings.
+    """
 
     # get embeddings
 
@@ -400,10 +482,27 @@ def get_embeddings(model, training_tf, kg_labels_file, output_all, output_drugs)
 
     drug_embeddings = embeddings_df[embeddings_df["entity_type"] == "Drug"]
     drug_embeddings.to_csv(output_drugs, index=False)
-    return
+    return embeddings_df, drug_embeddings
 
 
-def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
+def run_pipeline(
+    model_name: str,
+    out_dir: str | Path,
+    train_tf: TriplesFactory,
+    test_tf: TriplesFactory,
+    validation_tf: TriplesFactory,
+) -> PipelineResult:
+    """
+    Run the pipeline on the given triples factories.
+
+    :param model_name: the name of the model
+    :param out_dir: the output directory for the pipeline results
+    :param train_tf: the training triples factory object
+    :param test_tf: the testing triples factory object
+    :param validation_tf: the validation triples factory object
+
+    :return: the PipelineResult object containing the pipeline results
+    """
     # run pipeline
     config = json.load(
         open(
@@ -422,23 +521,61 @@ def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
     return pipeline_result
 
 
-def run_hpo(config, train_tf, test_tf, validation_tf, model_name, out_dir):
+def run_hpo(
+    config: dict,
+    model_name: str,
+    out_dir: str | Path,
+    train_tf: TriplesFactory,
+    test_tf: TriplesFactory,
+    validation_tf: TriplesFactory,
+) -> HpoPipelineResult:
+    """
+    Run hyperparameter optimization (HPO) for the given pipeline configuration.
+
+    :param config: the pipeline configuration as a dictionary
+    :param model_name: the name of the model
+    :param out_dir: the output directory for the HPO results
+    :param train_tf: the training TriplesFactory object
+    :param test_tf: the testing TriplesFactory object
+    :param validation_tf: the validation TriplesFactory object
+
+    :return: the HpoPipelineResult object containing the HPO results
+    """
     hpo_results = hpo_pipeline_from_config(
         config=config, training=train_tf, validation=validation_tf, testing=test_tf
     )
-    pathlib.Path(f"{out_dir}/{model_name}").mkdir(parents=True, exist_ok=True)
+    Path(f"{out_dir}/{model_name}").mkdir(parents=True, exist_ok=True)
     hpo_results.save_to_directory(f"{out_dir}/{model_name}/{model_name}_hpo_results")
     return hpo_results
 
 
 def create_data_splits(
-    kg_file,
-    out_dir,
-    kg_labels_file,
-    drug_class_name,
-    subsplits=True,
-):
-    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+    drug_class_name: str,
+    kg_file: str | Path,
+    kg_labels_file: str | Path,
+    out_dir: str | Path,
+    subsplits: bool = True,
+) -> Tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    TriplesFactory,
+    TriplesFactory,
+    TriplesFactory,
+    pd.DataFrame,
+]:
+    """
+    Create data splits for training, testing, and validation sets.
+
+    :param drug_class_name: the string indicating the drug class in th KG
+    :param kg_file: the path to the knowledge graph file
+    :param kg_labels_file: the path to the KG labels file
+    :param out_dir: the output directory to save the data splits
+    :param subsplits: a boolean indicating whether to create subsplits
+
+    :return: the training, testing, validation dataframes, and the TriplesFactory objects for each split
+    """
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # Create a TriplesFactory object from your knowledge graph file
     kg_triples_factory = TriplesFactory.from_path(kg_file)
@@ -455,9 +592,9 @@ def create_data_splits(
     print(
         "All nodes and relations in test and validation sets are there in the training set :)"
     )
-
+    main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
     if subsplits:
-        main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
+
         (
             train_df_ss,
             test_df_ss,
@@ -501,14 +638,38 @@ def create_data_splits(
         )
 
     generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir)
-
     for data in ["train_data", "test_data", "validation_data"]:
         triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
     print("all done :)")
-    return train_df, test_df, validation_df, train_tf, test_tf, validation_tf
+    return (
+        train_df,
+        test_df,
+        validation_df,
+        train_tf,
+        test_tf,
+        validation_tf,
+        main_test_df,
+    )
 
 
-def make_splits(kg_triples_factory):
+def make_splits(
+    kg_triples_factory: TriplesFactory,
+) -> Tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    TriplesFactory,
+    TriplesFactory,
+    TriplesFactory,
+]:
+    """
+    Split the knowledge graph into train, validation, and test sets.
+
+    :param kg_triples_factory: A TriplesFactory object containing the knowledge graph triples
+
+    :return: DataFrames of training, test, and validation triples, and their TriplesFactory objects
+    """
+
     train_tf, test_tf, validation_tf = kg_triples_factory.split(
         [0.8, 0.1, 0.1], random_state=42
     )
@@ -520,7 +681,18 @@ def make_splits(kg_triples_factory):
 
 
 # check all nodes and relations in test and validation are in training
-def nodes_relations_check(train_df, test_df, validation_df):
+def nodes_relations_check(
+    train_df: pd.DataFrame, test_df: pd.DataFrame, validation_df: pd.DataFrame
+) -> bool:
+    """
+    Check if all nodes and relations in test and validation are in the training set.
+
+    :param train_df: DataFrame of training triples
+    :param test_df: DataFrame of test triples
+    :param validation_df: DataFrame of validation triples
+
+    :return: True if all nodes and relations are in the training set, False otherwise
+    """
 
     train_nodes, train_relations = get_nodes_and_relations(train_df)
     test_nodes, test_relations = get_nodes_and_relations(test_df)
@@ -542,12 +714,25 @@ def nodes_relations_check(train_df, test_df, validation_df):
         return False
 
 
-def get_nodes_and_relations(df):
+def get_nodes_and_relations(df: pd.DataFrame) -> Tuple[set, set]:
+    """Get all nodes and relations
+
+    :param df: DataFrame of triples
+
+    :return: a tuple of sets of nodes and relations
+    """
 
     return set(df["source"]).union(df["target"]), set(df["relation"])
 
 
-def triples_to_df(triple_tf):
+def triples_to_df(triple_tf: TriplesFactory) -> pd.DataFrame:
+    """
+    Map the IDs to labels and convert the triples to a DataFrame.
+
+    :param triple_tf: the TriplesFactory object
+
+    :return: a DataFrame with columns "source", "relation", and "target"
+    """
     entity_id_to_label = triple_tf.entity_id_to_label
     relation_id_to_label = triple_tf.relation_id_to_label
     df = pd.DataFrame(
@@ -559,7 +744,16 @@ def triples_to_df(triple_tf):
     return df
 
 
-def triplets_to_file(out_folder: str, df: pd.DataFrame, data_type):
+def triplets_to_file(df: pd.DataFrame, data_type: str, out_folder: str | Path) -> None:
+    """
+    Save a DataFrame to a TSV file.
+
+    :param df: the DataFrame to save
+    :param data_type: the type of data (e.g., "train", "test", "validation")
+    :param out_folder: the output directory where the TSV file will be saved
+
+    :return: None
+    """
 
     output_file = out_folder + "/" + data_type + ".tsv"
     df.to_csv(output_file, sep="\t", header=False, index=False)
@@ -567,7 +761,22 @@ def triplets_to_file(out_folder: str, df: pd.DataFrame, data_type):
     return
 
 
-def generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir):
+def generate_drug_test_set(
+    drug_class_name: str,
+    kg_labels_file: str | Path,
+    out_dir: str | Path,
+    test_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Generate a test set of triples for drugs only
+
+    :param drug_class_name: the string indicating the drug class in th KG
+    :param kg_labels_file: the path to the KG labels file
+    :param out_dir: the output directory where the test set will be saved
+    :param test_df: the DataFrame containing the test triples
+
+    :return: a DataFrame containing the test triples for drugs only
+    """
 
     # Assign column names to existing DataFrame
     columns = ["source", "relation", "target"]
