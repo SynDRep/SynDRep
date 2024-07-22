@@ -17,21 +17,23 @@ def get_physicochem_prop(
     drug1_name: str,
     drug2_name: str,
     all_drug_prop_dict: dict = None,
-    radius: int = 6,
     nBits: int = 2048,
+    radius: int = 6,
 ) -> pd.DataFrame:
     """
     This function gets physicochemical properties for  two drugs.
 
     :param drug1_name: The name of the first drug.
     :param drug2_name: The name of the second drug.
-    :param radius: The radius of the Morgan fingerprint. Defaults to 6.
+    :param all_drug_prop_dict: The dictionary containing all the properties for the drug. Defaults to None.
     :param nBits: The number of bits in the fingerprint. Defaults to 2048.
+    :param radius: The radius of the Morgan fingerprint. Defaults to 6.
+
 
     :return: A dataframe containing drug names, their physicochemical properties and molecular fingerprints.
     """
 
-    row = pd.DataFrame ( {'Drug1_name': drug1_name, 'Drug2_name': drug2_name},index=[0])
+    row = pd.DataFrame({"Drug1_name": drug1_name, "Drug2_name": drug2_name}, index=[0])
     if all_drug_prop_dict:
         drug1_prop_dict = all_drug_prop_dict.get(drug1_name)
         drug2_prop_dict = all_drug_prop_dict.get(drug2_name)
@@ -40,7 +42,7 @@ def get_physicochem_prop(
     else:
         drug1_prop_dict = get_properties_dictionary(drug1_name)
         drug2_prop_dict = get_properties_dictionary(drug2_name)
-    
+
     row["Drug1_CID"] = row["Drug1_name"].apply(
         get_cid, drug_properties_dict=drug1_prop_dict
     )
@@ -106,7 +108,6 @@ def get_physicochem_prop(
     )
 
     all_df = row.copy()
-    
 
     # Split the list in the cell into multiple columns
     df_split1 = all_df["Drug1_Morgan_fp"].apply(pd.Series)
@@ -338,21 +339,18 @@ def calculate_tanimoto_coefficient(
     return tanimoto_coefficient
 
 
-def get_cid(drug_name,drug_properties_dict=None):
+def get_cid(drug_name: str, drug_properties_dict: dict = None):
     """get the PubChem ID for a drug
 
-    Args:
-        drug_name (str): drug name
+    :param drug_name: The name of the drug
+    :param drug_properties_dict: A dictionary containing the properties of the drug. Defaults to None.
 
-    Returns:
-        int: the cid of a drug
+    :return: The PubChem ID of the drug, or None if not found or properties are not available.
     """
 
     # add CID
     if drug_properties_dict is None:
-        url = (
-            f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{drug_name}/cids/txt"
-        )
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{drug_name}/cids/txt"
         response = requests.get(url)
         if response.status_code == 200:
             cid = int(response.text.split("\n")[0])
@@ -360,5 +358,4 @@ def get_cid(drug_name,drug_properties_dict=None):
             cid = None
         return cid
     else:
-        return drug_properties_dict.get('CID')
-        
+        return drug_properties_dict.get("CID")

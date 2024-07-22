@@ -15,22 +15,24 @@ import torch
 
 
 def get_graph_and_physicochem_properties(
-    kg_file: str | Path,
     kg_drug_file: str | Path,
+    kg_file: str | Path,
     out_dir: str | Path,
     all_drug_prop_dict: dict = None,
-    radius: int = 6,
+    device="cuda",
     nBits: int = 2048,
-    device="cuda",  # specify the device for calculations (cuda or cpu)
+    radius: int = 6,
 ) -> pd.DataFrame:
     """
     This function generates a DataFrame containing physicochemical properties and graph data for all drug combinations.
 
-    :param kg_file: The path to the knowledge graph file in TSV format.
     :param kg_drug_file: The path to the file containing drug names in CSV format.
-    :param radius: The radius of the Morgan fingerprint. Defaults to 6.
-    :param nBits: The number of bits in the fingerprint. Defaults to 2048.
+    :param kg_file: The path to the knowledge graph file in TSV format.
+    :param out_dir: The output directory for the output file.
+    :param all_drug_prop_dict: A dictionary containing drug names to their physicochemical properties. Defaults to None.
     :param device: The device for calculations (cuda or cpu). Defaults to "cuda".
+    :param nBits: The number of bits in the fingerprint. Defaults to 2048.
+    :param radius: The radius of the Morgan fingerprint. Defaults to 6.
 
     :return: A DataFrame containing drug combinations, their physicochemical properties, and molecular fingerprints.
     """
@@ -60,9 +62,11 @@ def get_graph_and_physicochem_properties(
         "Generating graph and physicochemical properties for all drug combinations..."
     )
     for drug_pair in tqdm(drug_combinations):
-        
+
         drug1_name, drug2_name = drug_pair
-        print('working on drug pair: ', drug1_name, '-', drug2_name, '...  ',flush=True)
+        print(
+            "working on drug pair: ", drug1_name, "-", drug2_name, "...  ", flush=True
+        )
         # get physicochemical properties
         ph_ch_df = get_physicochem_prop(
             drug1_name=drug1_name,
@@ -81,7 +85,7 @@ def get_graph_and_physicochem_properties(
             node_vectors=node_vectors,
             device=device,
         )
-        
+
         gr_df = gr_df.drop(columns=["Drug1_name", "Drug2_name"], axis=1)
         if ph_ch_df is None:
             continue
