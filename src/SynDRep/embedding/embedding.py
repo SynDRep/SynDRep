@@ -6,18 +6,19 @@ from itertools import combinations
 
 import pandas as pd
 import torch
-from pykeen.hpo.hpo import hpo_pipeline_from_path
+from pykeen.hpo.hpo import hpo_pipeline_from_config
 from pykeen.pipeline import pipeline_from_config
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
 from tqdm import tqdm
 
-from .prediction import gz_to_dict
-from .prediction import predict_diff_dataset
-from .scoring import draw_graph
-from .scoring import mean_hits
-from .scoring import multiclass_score_func
-from .scoring import percents_true_predictions
+from SynDRep.embedding.prediction import gz_to_dict
+from SynDRep.embedding.prediction import predict_diff_dataset
+from SynDRep.embedding.scoring import draw_graph
+from SynDRep.embedding.scoring import mean_hits
+from SynDRep.embedding.scoring import multiclass_score_func
+from SynDRep.embedding.scoring import percents_true_predictions
+from SynDRep.embedding.models_config import get_config
 
 
 def embed_and_predict(
@@ -51,6 +52,7 @@ def embed_and_predict(
         all_out_file=all_out_file,
         filter_training=filter_training,
         get_embeddings_data=get_embeddings_data,
+        enriched_kg=True
     )
 
     model = torch.load(
@@ -104,7 +106,7 @@ def embed_and_predict(
             # add to list of data frames
             df_list_all.append(reverse_pred_df)
             # add the best 1 to another df
-            reverse_pred_df_best= reverse_pred_df.head(1)
+            reverse_pred_df_best = reverse_pred_df.head(1)
             df_list_best.append(reverse_pred_df_best)
 
     df_all = pd.concat(df_list_all, ignore_index=True).reset_index(drop=True)
@@ -125,7 +127,6 @@ def embed_and_predict(
     return df_all, df_best
 
 
-
 def compare_embeddings(
     models_names: list,
     kg_file,
@@ -139,6 +140,7 @@ def compare_embeddings(
     all_out_file: str = None,
     filter_training=False,
     get_embeddings_data=False,
+    enriched_kg = False,
 ):
 
     results = []
@@ -161,7 +163,6 @@ def compare_embeddings(
         result.extend(embedding_results[1:])
         results.append(result)
 
-    
     columns = [
         "model",
         "Percentage of true predictions for all relations",
@@ -172,11 +173,18 @@ def compare_embeddings(
     ]
     results_df = pd.DataFrame(results, columns=columns)
     results_df.to_csv(f"{out_dir}/Models_results.csv", index=False)
-    max_score_row = results_df.loc[
-        results_df[
-            f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations"
-        ].idxmax()
-    ]
+    if enriched_kg:
+        max_score_row = results_df.loc[
+            results_df[
+                f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations"
+            ].idxmax()
+        ]
+    else:
+        max_score_row = results_df.loc[
+            results_df[
+                "Percentage of true predictions for all relations"
+            ].idxmax()
+        ]
     best_model = max_score_row["model"]
     df = pd.read_csv(f"{out_dir}/Models_results.csv")
     df.set_index("model", inplace=True)
@@ -228,32 +236,39 @@ def kg_embedding(
             validation_tf,
             main_test_df,
         ) = create_data_splits(
-        kg_file,
-        out_dir,
-        kg_labels_file,
-        drug_class_name,
-        subsplits=True,
-    )
-    else:
-        train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
-            create_data_splits(
             kg_file,
             out_dir,
             kg_labels_file,
             drug_class_name,
-            subsplits=False,
+            subsplits=True,
         )
+    else:
+        train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
+            create_data_splits(
+                kg_file,
+                out_dir,
+                kg_labels_file,
+                drug_class_name,
+                subsplits=False,
+            )
         )
 
         main_test_df = pd.concat([test_df, validation_df], ignore_index=True)
 
     if config_path:
-        config_file = config_path
+        config = json.load(open(config_path, "r"))
     else:
-        config_file = f"{model_name}_config_hpo.json"
+        config = get_config(model_name=model_name)
 
     # run hpo
-    run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir)
+    run_hpo(
+        config=config,
+        train_tf=train_tf,
+        test_tf=test_tf,
+        validation_tf=validation_tf,
+        model_name=model_name,
+        out_dir=out_dir,
+    )
 
     # run pipeline
     pipeline_results = run_pipeline(
@@ -301,7 +316,7 @@ def kg_embedding(
         indent=4,
     )
     # specif types testing set predictions
-    
+
     sp_test_df = pd.read_table(
         f"{out_dir}/test_{drug_class_name}_{drug_class_name}.tsv",
         header=None,
@@ -324,7 +339,7 @@ def kg_embedding(
         predict_all=predict_all,
         all_out_file=f"{drug_class_name}_{drug_class_name}_{all_out_file}",
     )
-    
+
     best_test_pred_sp_type = pd.read_csv(
         f"{out_dir}/{model_name}/{drug_class_name}_{drug_class_name}_{best_out_file}"
     )
@@ -407,9 +422,9 @@ def run_pipeline(train_tf, test_tf, validation_tf, model_name, out_dir):
     return pipeline_result
 
 
-def run_hpo(config_file, train_tf, test_tf, validation_tf, model_name, out_dir):
-    hpo_results = hpo_pipeline_from_path(
-        path=config_file, training=train_tf, validation=validation_tf, testing=test_tf
+def run_hpo(config, train_tf, test_tf, validation_tf, model_name, out_dir):
+    hpo_results = hpo_pipeline_from_config(
+        config=config, training=train_tf, validation=validation_tf, testing=test_tf
     )
     pathlib.Path(f"{out_dir}/{model_name}").mkdir(parents=True, exist_ok=True)
     hpo_results.save_to_directory(f"{out_dir}/{model_name}/{model_name}_hpo_results")
@@ -473,9 +488,7 @@ def create_data_splits(
             triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
 
         print("all done :)")
-        generate_drug_test_set(
-            kg_labels_file, test_df, drug_class_name, out_dir
-        )
+        generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir)
 
         return (
             train_df_ss,
@@ -487,11 +500,8 @@ def create_data_splits(
             main_test_df,
         )
 
-    
-    generate_drug_test_set(
-        kg_labels_file, test_df, drug_class_name, out_dir
-    )
-        
+    generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir)
+
     for data in ["train_data", "test_data", "validation_data"]:
         triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
     print("all done :)")
@@ -557,9 +567,7 @@ def triplets_to_file(out_folder: str, df: pd.DataFrame, data_type):
     return
 
 
-def generate_drug_test_set(
-    kg_labels_file, test_df, drug_class_name, out_dir
-):
+def generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir):
 
     # Assign column names to existing DataFrame
     columns = ["source", "relation", "target"]
