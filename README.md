@@ -8,23 +8,6 @@
 
 <h1 align="center">
   SynDRep: A Knowledge Graph-Enhanced Tool based on Synergistic Partner Prediction for Drug Repurposing
-  <!-- <br/>
-  <a href='https://travis-ci.com/github/hybrid-kg'>
-     <img src="https://travis-ci.com/hybrid-kg/clep.svg?branch=master" />
-  </a>
-  <a href='https://clep.readthedocs.io/en/latest/?badge=latest'>
-    <img src='https://readthedocs.org/projects/clep/badge/?version=latest' alt='Documentation Status' />
-  </a>
-  <a href="https://zenodo.org/badge/latestdoi/209278408">
-    <img src="https://zenodo.org/badge/209278408.svg" alt="DOI">
-  </a>
-  <a href="https://pypi.org/project/clep/">
-    <img src="https://img.shields.io/pypi/v/clep" alt="CLEP on PyPI">
-  </a>
-  <img src="https://img.shields.io/pypi/pyversions/clep" alt="CLEP Python versions">
-  <a href="https://github.com/hybrid-kg/clep/blob/master/LICENSE">
-    <img src="https://img.shields.io/pypi/l/clep" alt="CLEP Software License">
-  </a> -->
 </h1>
 
 ## Table of Contents
@@ -69,7 +52,7 @@ $ pip install -e .
 
 ## Documentation
 
-<!-- Read the [official docs](https://clep.readthedocs.io/en/latest/) for more information. -->
+
 
 ## Input Data Formats
 The following four files are required to run most of the SynDRep functions in the repository:
@@ -155,16 +138,11 @@ If you have difficulties using SynDRep, please open an issue at our [GitHub](htt
 
 ### Citation
 
-<!-- If you have found CLEP useful in your work, please consider citing:
 
-[**CLEP: A Hybrid Data- and Knowledge- Driven Framework for Generating Patient Representations**](https://doi.org/10.1093/bioinformatics/btab340
-).<br />
-Bharadhwaj, V. S., Ali, M., Birkenbihl, C., Mubeen, S., Lehmann, J., Hofmann-Apitius, M., Hoyt, C. T., & Domingo-Fernandez, D. (2020).<br />
-*Bioinformatics*, btab340.  -->
 
 ### Graphics
 
-<!-- The CLEP logo and framework graphic was designed by Carina Steinborn. -->
+
 
 ## Disclaimer
 
