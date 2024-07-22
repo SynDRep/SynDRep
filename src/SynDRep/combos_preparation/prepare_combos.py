@@ -1,35 +1,37 @@
 # -*- coding: utf-8 -*-
 
-"""generate a unified combination values for each pair of drugs"""
+"""Wrapper for all the combination-related functions"""
 
-import pathlib
+from pathlib import Path
 import requests
 from tqdm import tqdm
 import pandas as pd
 from statistics import mean
 import json
+from typing import List, Tuple
 
 
 def generate_enriched_kg(
-    kg_file: str,
-    combos_folder: str,
-    kg_drug_file: str,
-    out_dir: str,
-    name_cid_dict: dict=None,
+    combos_folder: str | Path,
+    kg_drug_file: str | Path,
+    kg_file: str | Path,
+    out_dir: str | Path,
+    name_cid_dict: dict = None,
     scoring_method: str = "ZIP",
-):
-    """Produces an enriched KG with drug-drug combinations
+) -> pd.DataFrame:
+    """
+    Produces an enriched KG with drug-drug combinations.
 
-    :param kg_file: a path to tsv file of KG.
     :param combos_folder: a path to the folder containing the drug combinations.
     :param kg_drug_file: a path to the csv file of KG drugs.
+    :param kg_file: a path to the original KG file.
     :param out_dir: a path to the desired output directory.
-    :param name_cid_dict: a dictionary of drug names to cid
-    :param Scoring_method: a scoring method of the combination, defaults to "ZIP"
-    :return: a df of enriched KG
+    :param name_cid_dict: a dictionary of drug names to cid, defaults to None.
+    :param scoring_method: the method for scoring drug combinations, defaults to "ZIP".
+    :return: a pandas DataFrame of enriched KG with drug-drug combinations.
     """
-    
-    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     _, final_combos_with_relations = prepare_combinations(
         combos_folder, kg_drug_file, out_dir, name_cid_dict, scoring_method
@@ -47,20 +49,21 @@ def generate_enriched_kg(
 
 
 def prepare_combinations(
-    combos_folder: str,
-    kg_drug_file: str,
-    out_dir: str,
-    name_cid_dict: dict=None,
+    combos_folder: str | Path,
+    kg_drug_file: str | Path,
+    out_dir: str | Path,
+    name_cid_dict: dict = None,
     scoring_method: str = "ZIP",
-):
+) -> pd.DataFrame:
     """Prepare the drug combinations and produce the ones that can be added to KG
 
     :param combos_folder: a path to the folder containing the drug combinations.
     :param kg_drug_file: a path to the csv file of KG drugs.
     :param out_dir: a path to the desired output directory.
-    :param name_cid_dict: a dictionary of drug names to cid, defaults to {}
-    :param Scoring_method: a scoring method of the combination, defaults to "ZIP"
-    :return: a final combinations to be added to KG
+    :param name_cid_dict: a dictionary of drug names to cid, defaults to None.
+    :param Scoring_method: a scoring method of the combination, defaults to "ZIP".
+
+    :return: a pandas DataFrame of final combinations to be added to KG
     """
 
     # load drug_df
@@ -108,7 +111,7 @@ def prepare_combinations(
     in_kg = final_combos.dropna(subset=["in_kg"])
 
     # make csv files
-    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     in_kg.to_csv(f"{out_dir}/combinations_in_kg.csv", index=False)
     not_in_kg.to_csv(f"{out_dir}/combinations_not_in_kg.csv", index=False)
@@ -196,12 +199,20 @@ def prepare_combinations(
 
 
 def get_merged_combinations(
-    folder_path, output_path, name_cid_dict, scoring_method="ZIP"
-):
-    """_summary_
+    folder_path: str | Path,
+    name_cid_dict: dict,
+    output_path: str | Path,
+    scoring_method="ZIP",
+) -> pd.DataFrame:
+    """
+    Merge all csv files in the given folder and return a DataFrame with the merged combinations.
 
-    Args:
-        file_path (_type_): _description_
+    :param folder_path: a path to the folder containing csv files.
+    :param name_cid_dict: a dictionary of drug names to cid.
+    :param output_path: a path to save the merged file.
+    :param scoring_method: a scoring method of the combination, defaults to "ZIP".
+
+    :return: a DataFrame with the merged combinations.
     """
 
     combos = merge_files(folder_path)
@@ -275,31 +286,27 @@ def get_merged_combinations(
     return final_combos
 
 
-def merge_files(folder_path):
+def merge_files(folder_path: str | Path) -> pd.DataFrame:
     """concatenates all csv files  in the directory
 
-    Args:
-        folder_path (String): a path to the folder containing the combinations from databases in the recommended format
+    :param folder_path: a path to the folder containing csv files.
 
-    Returns:
-        dataframe: dataframe containing all the combinations together
+    :return: a DataFrame with all csv files concatenated.
     """
 
     # Get a list of dataframes of the files
-    dfs = [pd.read_csv(f) for f in pathlib.Path(folder_path).iterdir() if f.is_file()]
+    dfs = [pd.read_csv(f) for f in Path(folder_path).iterdir() if f.is_file()]
     # concatenate all dfs
     all_combinations = pd.concat(dfs, ignore_index=True)
     return all_combinations
 
 
-def check_pos_neg(lst):
+def check_pos_neg(lst: List[float]) -> str:
     """Tells if all values are positives, negatives, zeros, or mixed
 
-    Args:
-        lst (list):list of values
+    :param lst: a list containing values
 
-    Returns:
-        string: "All Positive", "All Negative", "Zero", or "Mixed"
+    :return: "All Positive", "All Negative", "Zero", or "Mixed"
     """
     all_positive = all(val > 0 for val in lst)
     all_negative = all(val < 0 for val in lst)
@@ -311,14 +318,12 @@ def check_pos_neg(lst):
     )
 
 
-def get_cid(drug_name):
+def get_cid(drug_name: str) -> int:
     """get the PubChem ID for a drug
 
-    Args:
-        drug_name (str): drug name
+    :param drug_name: drug name
 
-    Returns:
-        int: the cid of a drug
+    :return: the cid of a drug
     """
 
     # add CID
@@ -333,12 +338,18 @@ def get_cid(drug_name):
     return cid
 
 
-def add_cid(df, drug_name_column, name_cid_dict=None):
+def add_cid(
+    df:pd.DataFrame,
+    drug_name_column: str,
+    name_cid_dict: dict=None
+    ) -> Tuple[dict, pd.DataFrame]:
     """adds a column with drugs cid
 
-    Args:
-        df (dataframe): dataframe containing the name of drug
-        drug_name_column (str): the title of drug name column
+    :param df: DataFrame with drug names
+    :param drug_name_column: column name with drug names
+    :param name_cid_dict: a dictionary of drug names to cid, defaults to None
+    
+    :return: updated DataFrame with drugs cid and updated name_cid_dict
     """
 
     cid_column = drug_name_column.replace("name", "CID")
@@ -346,7 +357,7 @@ def add_cid(df, drug_name_column, name_cid_dict=None):
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
         name = row[drug_name_column]
-        
+
         if name_cid_dict:
             cid = name_cid_dict.get(name)
             if cid:
@@ -356,22 +367,22 @@ def add_cid(df, drug_name_column, name_cid_dict=None):
                 name_cid_dict[name] = cid
                 df.loc[i, cid_column] = cid
         else:
-            name_cid_dict={}
+            name_cid_dict = {}
             cid = get_cid(name)
             name_cid_dict[name] = cid
             df.loc[i, cid_column] = cid
     return name_cid_dict, df
 
 
-def synergy_detection(value):
-    """_summary_
-
-    Args:
-        value (_type_): _description_
-
-    Returns:
-        str: combination type as symergism, antgonism, or addition
+def synergy_detection(value: float)-> str:
     """
+    Returns the relationship between two drugs based on their synergy score
+
+    :param value: synergy score
+
+    :return: the relationship between two drugs ("HAS_SYNERGISM_WITH", "HAS_ANTAGONISM_WITH", "HAS_ADDITIVE_EFFECT_WITH")
+    """
+    
     if value > 0:
         return "HAS_SYNERGISM_WITH"
     elif value < 0:
