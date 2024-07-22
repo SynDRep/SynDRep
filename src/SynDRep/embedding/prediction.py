@@ -1,30 +1,54 @@
 # -*- coding: utf-8 -*-
 """wrapper for prediction functions"""
 import gzip
+from pathlib import Path
+from typing import Tuple
 
 import pandas as pd
+from pykeen.models.base import Model
 from pykeen.predict import predict_target
 from pykeen.triples import TriplesFactory
 from tqdm import tqdm
 
 
 def predict_diff_dataset(
-    model,
-    model_name,
-    training_tf,
-    main_test_df: pd.DataFrame,
-    out_dir,
-    kg_labels_file,
     best_out_file: str,
-    predict_all=False,
+    kg_labels_file: str | Path,
+    main_test_df: pd.DataFrame,
+    model: Model,
+    model_name: str,
+    out_dir: str | Path,
+    training_tf: TriplesFactory,
     all_out_file: str = None,
-    with_annotation=False,
-    subsplits=False,
-    training_df=None,
-    testing_df=None,
-    validation_df=None,
-    filter_training=False,
-):
+    filter_training: bool = False,
+    predict_all: bool = False,
+    subsplits: bool = True,
+    testing_df: pd.DataFrame = None,
+    training_df: pd.DataFrame = None,
+    validation_df: pd.DataFrame = None,
+    with_annotation: bool = False,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Make prediction using an embedding model.
+
+    :param best_out_file: the path to the csv file containing best model predictions.
+    :param kg_labels_file: the path to the csv file containing KG labels.
+    :param main_test_df: the DataFrame containing the main test data.
+    :param model: the embedding model to use.
+    :param model_name: the name of the embedding model.
+    :param out_dir: the output directory for the results.
+    :param training_tf: the training triples factory.
+    :param all_out_file: the path to save all predicted relations with score for a pair of drugs of the test set if predict_all is True. Defaults to None.
+    :param filter_training: whether to filter the training data. Defaults to False.
+    :param predict_all: whether to predict all relations with score for a pair of drugs. Defaults to False.
+    :param subsplits: whether to use subsplits. Defaults to True.
+    :param testing_df: the DataFrame containing testing data. Defaults to None.
+    :param training_df: the DataFrame containing training data. Defaults to None.
+    :param validation_df: the DataFrame containing validation data. Defaults to None.
+    :param with_annotation: whether to add annotation to the prediction results. Defaults to False.
+
+    :return: a DataFrame containing the prediction results for all entities and a DataFrame containing the best prediction results for each pair of drugs.
+    """
 
     labels = pd.read_table(kg_labels_file, dtype=str)
     labels_dict = dict(zip(labels["Name"], labels["Type"]))
@@ -100,8 +124,25 @@ def predict_diff_dataset(
 
 
 def pred_manipulation(
-    df, training_df, testing_df, validation_df, subsplits=None, main_test_df=None
-):
+    df: pd.DataFrame,
+    testing_df: pd.DataFrame,
+    training_df: pd.DataFrame,
+    validation_df: pd.DataFrame,
+    main_test_df: pd.DataFrame = None,
+    subsplits: bool = False,
+) -> pd.DataFrame:
+    """
+    Adds columns to the df indicating whether the triples are in the testing_df, training_df, or validation_df
+
+    :param df: DataFrame with triples to check.
+    :param testing_df: DataFrame with testing triples.
+    :param training_df: DataFrame with training triples.
+    :param validation_df: DataFrame with validation triples.
+    :param main_test_df: DataFrame with main_test triples (optional). Deaults to None.
+    :param subsplits: boolean indicating whether subsplits were done do it adds main_test. Defaults to False.
+
+    :return: DataFrame with an additional column indicating whether the triples are in the testing_df, training_df, or validation_df
+    """
 
     columns = ["source", "relation", "target"]
 
@@ -113,14 +154,24 @@ def pred_manipulation(
     df_testing = df_checker(df_training, testing_df, "testing")
     df_final = df_checker(df_testing, validation_df, "validation")
 
-    if subsplits is not None:
+    if subsplits:
         df_final = df_checker(df_final, main_test_df, "main_test")
 
     return df_final
 
 
-def df_checker(query_df, reference_df, set_name):
+def df_checker(
+    query_df: pd.DataFrame, reference_df: pd.DataFrame, set_name: str
+) -> pd.DataFrame:
+    """
+    Adds a column to the query_df indicating whether the triples are in the reference_df
 
+    :param query_df: DataFrame with triples to check
+    :param reference_df: DataFrame with reference triples
+    :param set_name: string indicating the set name (e.g., training, testing, validation)
+
+    :return: DataFrame with an additional column indicating whether the triples are in the reference_df
+    """
     query_df[["head_label", "relation_label", "tail_label"]] = query_df[
         ["head_label", "relation_label", "tail_label"]
     ].astype(str)
@@ -145,14 +196,12 @@ def df_checker(query_df, reference_df, set_name):
     return query_df
 
 
-def gz_to_dict(path):
+def gz_to_dict(path: str | Path) -> dict:
     """A function to get the dictionary out of gz file
 
-    Args:
-        path (str): path to gz file
+    :param path: path to gz file
 
-    Returns:
-        dict: a dictionary of the content of the tsv inside gz
+    :return: dictionary of gz file contents
     """
     with gzip.open(path, "rt", encoding="utf-8") as gz_file:
         df = pd.read_csv(gz_file, delimiter="\t")

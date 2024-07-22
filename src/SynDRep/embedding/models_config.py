@@ -2,7 +2,14 @@
 """get the model config"""
 
 
-def get_config(model_name):
+def get_config(model_name: str) -> dict:
+    """
+    Get the model configuration based on the given model name.
+
+    :param model_name: the name of the model (e.g., "TransE", "DistMult", etc.)
+
+    :return: a dictionary containing the model configuration
+    """
     if model_name == "TransE":
         config = {
             "optuna": {},
@@ -370,6 +377,8 @@ def get_config(model_name):
             },
         }
     else:
-        raise ValueError(f"config file for {model_name} was not provided and cannot be generated.")
-        
+        raise ValueError(
+            f"config file for {model_name} was not provided and cannot be generated."
+        )
+
     return config

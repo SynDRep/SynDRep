@@ -53,8 +53,8 @@ def classify_data(
     *args,
 ):
     # run cross-validation and train the model
-    
-    trained_model, scaler,columns, best_model_name = compare_models(
+
+    trained_model, scaler, columns, best_model_name = compare_models(
         model_names=model_names,
         out_dir=out_dir,
         data=data_for_training,
@@ -64,8 +64,8 @@ def classify_data(
         rand_labels=rand_labels,
         *args,
     )
-    
-    #predict on prediction set
+
+    # predict on prediction set
     pred = predict(
         model=trained_model,
         data_for_prediction=data_for_prediction,
@@ -76,40 +76,43 @@ def classify_data(
     )
     return pred
 
+
 def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
-    
+
     data_df = data_for_prediction[columns]
     if scaler is not None:
         data_df = scaler.transform(data_df)
-    
 
-    ids = data_for_prediction[["Drug1_CID","Drug2_CID", "Drug1_name", "Drug2_name"]]
-    
+    ids = data_for_prediction[["Drug1_CID", "Drug2_CID", "Drug1_name", "Drug2_name"]]
+
     predicted_probabilities = model.predict_proba(data_df)
 
     # Create a DataFrame with predictions and their probabilities for both classes
-    result_df = pd.DataFrame({
-        'Prediction': model.predict(data_df),  # Replace with appropriate prediction method for your task
-        'Synergism_probability': predicted_probabilities[:, 2],
-        'Additism_probability': predicted_probabilities[:, 1],
-        'Antagonism_probability': predicted_probabilities[:, 0]
-    })
+    result_df = pd.DataFrame(
+        {
+            "Prediction": model.predict(
+                data_df
+            ),  # Replace with appropriate prediction method for your task
+            "Synergism_probability": predicted_probabilities[:, 2],
+            "Additism_probability": predicted_probabilities[:, 1],
+            "Antagonism_probability": predicted_probabilities[:, 0],
+        }
+    )
     pred = pd.concat([ids, result_df], axis=1)
-    
-    
+
     # sort by probability
     pred = pred.sort_values(by=["Probability_Positive_Class"], ascending=False)
-    relation_dict = {1:'HAS_SYNERGISM_WITH',
-                0: 'HAS_ANTAGONISM_WITH'
-                }
+    relation_dict = {1: "HAS_SYNERGISM_WITH", 0: "HAS_ANTAGONISM_WITH"}
 
     pred["relation_label"] = pred["Prediction"].apply(relation_dict.get)
-    
-    #Export to csv
-    pred.to_csv(f'{out_dir}/{model_name}/all_drug_predictions.csv', index= False) 
+
+    # Export to csv
+    pred.to_csv(f"{out_dir}/{model_name}/all_drug_predictions.csv", index=False)
     return pred
 
-def compare_models(model_names: List[str],
+
+def compare_models(
+    model_names: List[str],
     data: pd.DataFrame,
     optimizer_name: str,
     out_dir: str,
@@ -117,14 +120,14 @@ def compare_models(model_names: List[str],
     scoring_metrics: List[str],
     rand_labels: bool,
     *args,
-    ) -> Dict[int, Any]:
+) -> Dict[int, Any]:
     # get feature names
-    columns = data.copy().drop(columns='label').columns
-    
+    columns = data.copy().drop(columns="label").columns
+
     # run cross-validation
-    print('running cross_validation...')
+    print("running cross_validation...")
     for model_name in model_names:
-        print (f'working on {model_name}')
+        print(f"working on {model_name}")
         run_cross_validation(
             data=data,
             model_name=model_name,
@@ -134,17 +137,19 @@ def compare_models(model_names: List[str],
             scoring_metrics=scoring_metrics,
             rand_labels=rand_labels,
         )
-    
+
     # load cross-validation results
     metrics_dict = {}
     for metric in scoring_metrics:
-        models_mean =draw_graph(model_names= model_names, out_dir=out_dir, metric=metric)
-        metrics_dict[metric]=models_mean
-        #logger.info(f"Mean {metric}: {models_mean}")
-    json.dump(metrics_dict, open(f"{out_dir}/models_mean_metrics.json",'w'), indent=4)
-    best_model = max(metrics_dict['roc_auc'], key=metrics_dict['roc_auc'].get)
-    #logger.info(f"Best model: {best_model}")
-    
+        models_mean = draw_graph(
+            model_names=model_names, out_dir=out_dir, metric=metric
+        )
+        metrics_dict[metric] = models_mean
+        # logger.info(f"Mean {metric}: {models_mean}")
+    json.dump(metrics_dict, open(f"{out_dir}/models_mean_metrics.json", "w"), indent=4)
+    best_model = max(metrics_dict["roc_auc"], key=metrics_dict["roc_auc"].get)
+    # logger.info(f"Best model: {best_model}")
+
     # train the best model on the whole dataset
     trained_model, scaler = train_model(
         data=data,
@@ -154,9 +159,8 @@ def compare_models(model_names: List[str],
         validation_cv=validation_cv,
         rand_labels=rand_labels,
     )
-    return trained_model, scaler,columns,best_model
-    
-    
+    return trained_model, scaler, columns, best_model
+
 
 def train_model(
     data: pd.DataFrame,
@@ -188,7 +192,7 @@ def train_model(
         optimizer = get_optimizer(
             optimizer_name, model, model_name, optimizer_cv, multi_roc_auc
         )
-       
+
     else:
 
         optimizer = get_optimizer(
@@ -198,9 +202,10 @@ def train_model(
     best_model = optimizer.best_estimator_
 
     # save the best model and scaler
-    pickle.dump(best_model, open(f'{out_dir}/best_{model_name}_model.pickle', 'wb'))
-    pickle.dump(scaler, open(f'{out_dir}/best_{model_name}_scaler.pickle', 'wb'))
+    pickle.dump(best_model, open(f"{out_dir}/best_{model_name}_model.pickle", "wb"))
+    pickle.dump(scaler, open(f"{out_dir}/best_{model_name}_scaler.pickle", "wb"))
     return best_model, scaler
+
 
 def run_cross_validation(
     data: pd.DataFrame,
@@ -247,7 +252,7 @@ def run_cross_validation(
         )
 
         # Run cross validation over the given model for multiclass classification
-        #logger.debug("Doing multiclass classification")
+        # logger.debug("Doing multiclass classification")
         cv_results = _do_multiclass_classification(
             estimator=optimizer,
             x=data_df,
@@ -263,18 +268,19 @@ def run_cross_validation(
         )
 
         # Run cross validation over the given model
-        #logger.debug("Running binary cross validation")
+        # logger.debug("Running binary cross validation")
         cv_results = model_selection.cross_validate(
             estimator=optimizer,
             X=data_df,
             y=labels,
-            cv=model_selection.StratifiedKFold(
-                n_splits=validation_cv, shuffle=True),
+            cv=model_selection.StratifiedKFold(n_splits=validation_cv, shuffle=True),
             scoring=scoring_metrics,
             return_estimator=True,
         )
 
-    _save_json(results=copy.deepcopy(cv_results), out_dir=out_dir, model_name=model_name)
+    _save_json(
+        results=copy.deepcopy(cv_results), out_dir=out_dir, model_name=model_name
+    )
 
     return cv_results
 
@@ -297,46 +303,44 @@ def _do_multiclass_classification(
     :param return_estimator: Boolean value to indicate if the estimator used should returned in the results
     """
     unique_labels = list(np.unique(y))
-    #logger.debug(f"unique_labels:\n {unique_labels}")
+    # logger.debug(f"unique_labels:\n {unique_labels}")
 
     n_classes = len(unique_labels)
-    #logger.debug(f"n_classes:\n {n_classes}")
+    # logger.debug(f"n_classes:\n {n_classes}")
 
     cv_results = defaultdict(list)
 
     # Make k-fold splits for cross validations
     k_fold = model_selection.StratifiedKFold(n_splits=cv, shuffle=True)
-    #logger.debug(f"k_fold Classifier:\n {k_fold}")
+    # logger.debug(f"k_fold Classifier:\n {k_fold}")
 
     # Split the data and the labels
     for run_num, (train_indexes, test_indexes) in enumerate(k_fold.split(x, y)):
-        #logger.debug(f"\nCurrent Run number: {run_num}\n")
+        # logger.debug(f"\nCurrent Run number: {run_num}\n")
         # Make a One-Hot encoding of the classes
         y = preprocessing.label_binarize(y, classes=unique_labels)
 
         x_train = np.asarray(
-            [x.iloc[train_index, :].values.tolist()
-             for train_index in train_indexes]
+            [x.iloc[train_index, :].values.tolist() for train_index in train_indexes]
         )
         x_test = np.asarray(
-            [x.iloc[test_index, :].values.tolist()
-             for test_index in test_indexes]
+            [x.iloc[test_index, :].values.tolist() for test_index in test_indexes]
         )
         y_train = np.asarray([y[train_index] for train_index in train_indexes])
         y_test = np.asarray([y[test_index] for test_index in test_indexes])
-        #logger.debug(f"Counter y_train:\n{np.unique(y_train, axis=0, return_counts=True)}\n Counter y_test:\n{np.unique(y_test, axis=0, return_counts=True)}")
+        # logger.debug(f"Counter y_train:\n{np.unique(y_train, axis=0, return_counts=True)}\n Counter y_test:\n{np.unique(y_test, axis=0, return_counts=True)}")
 
         # Make a multiclass classifier for the given estimator
         clf = multiclass.OneVsRestClassifier(estimator)
-        #logger.debug(f"clf:\n {clf}")
+        # logger.debug(f"clf:\n {clf}")
 
         # Fit and predict using the multiclass classifier
         y_fit = clf.fit(x_train, y_train)
-        #logger.debug(f"y_fit:\n {y_fit}")
+        # logger.debug(f"y_fit:\n {y_fit}")
 
         y_pred = y_fit.predict(x_test)
-        #logger.debug(f"y_pred:\n {y_pred}\n\n")
-        #logger.debug(f"y_true:\n {y_test}\n\n")
+        # logger.debug(f"y_pred:\n {y_pred}\n\n")
+        # logger.debug(f"y_true:\n {y_test}\n\n")
 
         if return_estimator:
             cv_results["estimator"].append(clf.estimator)
@@ -406,7 +410,7 @@ def _do_multiclass_classification(
                     "The passed metric has not been defined in the code for multiclass classification."
                 )
                 sys.exit()
-        #logger.debug(f"cv_results:\n {cv_results}")
+        # logger.debug(f"cv_results:\n {cv_results}")
 
     return cv_results
 
@@ -486,7 +490,6 @@ def get_optimizer(optimizer: str, estimator, model, cv: StratifiedKFold, scorer)
         raise ValueError(f"Unknown optimizer, {optimizer}.")
 
 
-
 def _save_json(results: Dict[str, Any], out_dir: str, model_name: str) -> None:
     """Save the cross validation results as a json file."""
     for key in results.keys():
@@ -520,36 +523,36 @@ def _save_json(results: Dict[str, Any], out_dir: str, model_name: str) -> None:
 def get_param_grid(model_name):
     """Get the parameter grid for each machine learning model for grid search."""
 
-    if model_name == 'logistic_regression':
+    if model_name == "logistic_regression":
         c_values = [0.01, 0.1, 0.25, 0.5, 0.8, 0.9, 1, 10]
         param_grid = dict(C=c_values)
 
-    elif model_name == 'elastic_net':
+    elif model_name == "elastic_net":
         # Logistic regression with elastic net penalty & equal weightage to l1 and l2
-        l1_ratios = [0.1, 0.2, 0.3, .5, .7, .9, .95, .99, 1]
+        l1_ratios = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 0.95, 0.99, 1]
         c_values = [0.01, 0.1, 0.25, 0.5, 0.8, 0.9, 1, 10]
         param_grid = dict(l1_ratio=l1_ratios, C=c_values)
 
-    elif model_name == 'svm':
+    elif model_name == "svm":
         c_values = [0.1, 1, 10, 100, 1000]
-        kernel = ['poly', 'rbf']
+        kernel = ["poly", "rbf"]
         param_grid = dict(C=c_values, kernel=kernel)
 
-    elif model_name == 'random_forest':
+    elif model_name == "random_forest":
         n_estimators = [10, 20, 40, 50, 70, 100, 200, 400]  # default=100
         max_features = ["sqrt", "log2"]
         param_grid = dict(n_estimators=n_estimators, max_features=max_features)
 
-    elif model_name == 'gradient_boost':
+    elif model_name == "gradient_boost":
 
         # parameters from https://www.analyticsvidhya.com/blog/2016/03/
         # complete-guide-parameter-tuning-xgboost-with-codes-python/
         param_grid = {
-            'learning_rate': [0.01, 0.05, 0.1],  # typical value is 1
-            'subsample': [0.5, 0.7, 0.8, 1],  # typical values | default is 1
+            "learning_rate": [0.01, 0.05, 0.1],  # typical value is 1
+            "subsample": [0.5, 0.7, 0.8, 1],  # typical values | default is 1
             # Default is 6 we include a broader range
-            'max_depth': [3, 6, 8, 10],
-            'min_child_weight': [1]  # Default
+            "max_depth": [3, 6, 8, 10],
+            "min_child_weight": [1],  # Default
         }
 
     else:
@@ -562,27 +565,26 @@ def get_param_grid(model_name):
 
 def get_param_dist(model_name):
     """Get the parameter distribution for each machine learning model for random search."""
-    if model_name == 'logistic_regression':
-        param_dist = dict(C=loguniform(1e-6, 1e+6))
+    if model_name == "logistic_regression":
+        param_dist = dict(C=loguniform(1e-6, 1e6))
 
-    elif model_name == 'elastic_net':
-        param_dist = dict(l1_ratio=uniform(0, 1), C=loguniform(1e-6, 1e+6))
+    elif model_name == "elastic_net":
+        param_dist = dict(l1_ratio=uniform(0, 1), C=loguniform(1e-6, 1e6))
 
-    elif model_name == 'svm':
-        kernel = ['linear', 'poly', 'rbf']
-        param_dist = dict(C=loguniform(1e-3, 1e+3), kernel=kernel)
+    elif model_name == "svm":
+        kernel = ["linear", "poly", "rbf"]
+        param_dist = dict(C=loguniform(1e-3, 1e3), kernel=kernel)
 
-    elif model_name == 'random_forest':
+    elif model_name == "random_forest":
         max_features = ["auto", "log2"]
-        param_dist = dict(n_estimators=range(100, 1001),
-                        max_features=max_features)
+        param_dist = dict(n_estimators=range(100, 1001), max_features=max_features)
 
-    elif model_name == 'gradient_boost':
+    elif model_name == "gradient_boost":
         param_dist = dict(
             learning_rate=uniform(0, 1),
             subsample=uniform(0.1, 0.9),
             max_depth=range(0, 11),
-            min_child_weight=range(0, 26)
+            min_child_weight=range(0, 26),
         )
 
     else:
@@ -595,29 +597,30 @@ def get_param_dist(model_name):
 
 def get_param_space(model_name):
     """Get the parameter space for each machine learning model for bayesian search."""
-    if model_name == 'logistic_regression':
-        param_space = dict(C=Real(1e-6, 1e+6, prior='log-uniform'))
+    if model_name == "logistic_regression":
+        param_space = dict(C=Real(1e-6, 1e6, prior="log-uniform"))
 
-    elif model_name == 'elastic_net':
-        param_space = dict(l1_ratio=Real(0, 1), C=Real(
-            1e-6, 1e+6, prior='log-uniform'))
+    elif model_name == "elastic_net":
+        param_space = dict(l1_ratio=Real(0, 1), C=Real(1e-6, 1e6, prior="log-uniform"))
 
-    elif model_name == 'svm':
-        kernel = ['linear', 'poly', 'rbf']
+    elif model_name == "svm":
+        kernel = ["linear", "poly", "rbf"]
         param_space = dict(
-            C=Real(1e-3, 1e+3, prior='log-uniform'), kernel=Categorical(kernel))
+            C=Real(1e-3, 1e3, prior="log-uniform"), kernel=Categorical(kernel)
+        )
 
-    elif model_name == 'random_forest':
+    elif model_name == "random_forest":
         max_features = ["sqrt", "log2"]
-        param_space = dict(n_estimators=Integer(100, 1000),
-                           max_features=Categorical(max_features))
+        param_space = dict(
+            n_estimators=Integer(100, 1000), max_features=Categorical(max_features)
+        )
 
-    elif model_name == 'gradient_boost':
+    elif model_name == "gradient_boost":
         param_space = dict(
             learning_rate=Real(0, 1),
             subsample=Real(0.1, 1.0),
             max_depth=Integer(1, 30),
-            min_child_weight=Integer(0, 25)
+            min_child_weight=Integer(0, 25),
         )
 
     else:
@@ -626,5 +629,3 @@ def get_param_space(model_name):
         )
 
     return param_space
-
-
