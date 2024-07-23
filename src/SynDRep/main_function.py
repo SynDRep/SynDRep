@@ -55,25 +55,25 @@ def run_SynDRep(
     :param ml_model_names: the names of the models to use for ML classification.
     :param out_dir: the output directory.
     :param optimizer_name: the name of the optimizer.
-    :param scoring_metrics: the scoring metrics to use.
-    :param validation_cv: the number of cross-validation folds for model tuning.
+    :param scoring_metrics: the scoring metrics to use for ML-models scoring.
+    :param validation_cv: the number of cross-validation folds for ML-model tuning.
     :param all_drug_drug_predictions: whether to save all drug-drug combinations predictions. Defaults to False.
-    :param all_drug_prop_dict: a dictionary containing all drug properties. Defaults to None.
+    :param all_drug_prop_dict: a dictionary containingthe physicochemical properites for all drugs. Defaults to None.
     :param all_out_file: the output file for all embedding predictions. Defaults to None.
-    :param best_out_file: the output file for the best pembedding predictions. Defaults to "predictions_best.csv".
+    :param best_out_file: the output file for the best embedding predictions. Defaults to "predictions_best.csv".
     :param config_path: the path to the embedding model configuration file. Defaults to None.
     :param device: the device to use for computations. Defaults to "cuda".
-    :param filter_training: whether to filter the training data. Defaults to False.
-    :param method: the method to use for SynDRep. Defaults to "Embeeding_only".
+    :param filter_training: whether to filter the training data from relations predicted by embedding. Defaults to False.
+    :param method: Method to use for syndrep. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML". Defaults to "Embeeding_only".
     :param nBits: the number of bits for Morgen fingerprint calculation. Defaults to 2048.
     :param name_cid_dict: a dictionary containing drug names and CIDs. Defaults to None.
-    :param pred_reverse: whether to predict reverse relations. Defaults to False.
-    :param predict_all: whether to predict all test drug-drug combinations. Defaults to False.
+    :param pred_reverse: whether to predict reverse relations using embedding models. Defaults to False.
+    :param predict_all: whether to save all test drug-drug relations prdicted by Embedding models . Defaults to False.
     :param radius: the radius for Morgen fingerprint calculation. Defaults to 6.
     :param rand_labels: whether to randomize the labels for ML classification. Defaults to False.
-    :param scoring_method: the synergyscoring method to use. Defaults to "ZIP".
-    :param sorted_predictions: whether to sort the predictions. Defaults to True.
-    :param subsplits: whether to use subsplits for training. Defaults to True.
+    :param scoring_method: the synergy scoring method to use. Defaults to "ZIP".
+    :param sorted_predictions: whether to sort the predictions (in embedding_only method). Defaults to True.
+    :param subsplits: whether to use subsplits for training of embedding models. Defaults to True.
 
     :return: a DataFrame containing the best predicted relation for each pair drugs.
     """
