@@ -69,7 +69,7 @@ The following four files are required to run most of the SynDRep functions in th
 
 ### 2. Knowledge Graph
 
-The graph format should be a modified version of the Edge List Format. Which looks as follows:
+The graph format should be a modified version of the edge List Format. Which looks as follows:
 
 | Source    | Relation    | Target    |
 | --------- | ----------- | --------- |
@@ -77,7 +77,7 @@ The graph format should be a modified version of the Edge List Format. Which loo
 | p(MGI:Gnaq) | KEGG_INCREASES | p(MGI:Pla2g2c)
 | Estramustine | EBEL_DRUGBANK_RELATION | p(HGNC:ESR1)
     
-**Note:** The data must be in a tab separated file format.
+**Note:** The data must be in a tab separated file format and **without headers**.
 
 ### 3. Knowledge Graph Labels
 

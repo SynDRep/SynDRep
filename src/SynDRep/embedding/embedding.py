@@ -295,10 +295,10 @@ def kg_embedding(
             validation_tf,
             main_test_df,
         ) = create_data_splits(
-            kg_file,
-            out_dir,
-            kg_labels_file,
-            drug_class_name,
+            kg_file=kg_file,
+            out_dir=out_dir,
+            kg_labels_file=kg_labels_file,
+            drug_class_name=drug_class_name,
             subsplits=True,
         )
     else:
@@ -311,10 +311,10 @@ def kg_embedding(
             validation_tf,
             main_test_df,
         ) = create_data_splits(
-            kg_file,
-            out_dir,
-            kg_labels_file,
-            drug_class_name,
+            kg_file=kg_file,
+            out_dir=out_dir,
+            kg_labels_file=kg_labels_file,
+            drug_class_name=drug_class_name,
             subsplits=False,
         )
 
@@ -580,13 +580,13 @@ def create_data_splits(
     # Create a TriplesFactory object from your knowledge graph file
     kg_triples_factory = TriplesFactory.from_path(kg_file)
     train_df, test_df, validation_df, train_tf, test_tf, validation_tf = make_splits(
-        kg_triples_factory
+        kg_triples_factory=kg_triples_factory
     )
 
     # Split the knowledge graph into train, validation, and test sets
     while not nodes_relations_check(train_df, test_df, validation_df):
         train_df, test_df, validation_df, train_tf, test_tf, validation_tf = (
-            make_splits(kg_triples_factory)
+            make_splits(kg_triples_factory=kg_triples_factory)
         )
 
     print(
@@ -602,7 +602,7 @@ def create_data_splits(
             train_tf_ss,
             test_tf_ss,
             validation_tf_ss,
-        ) = make_splits(train_tf)
+        ) = make_splits(kg_triples_factory=train_tf)
         while not nodes_relations_check(train_df_ss, test_df_ss, validation_df_ss):
             (
                 train_df_ss,
@@ -611,7 +611,7 @@ def create_data_splits(
                 train_tf_ss,
                 test_tf_ss,
                 validation_tf_ss,
-            ) = make_splits(train_tf)
+            ) = make_splits(kg_triples_factory=train_tf)
 
         print(
             "All nodes and relations in test and validation subsets are there in the training set :)"
@@ -622,10 +622,10 @@ def create_data_splits(
             "validation_data_ss",
             "main_test_data",
         ]:
-            triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
+            triplets_to_file(out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data)
 
         print("all done :)")
-        generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir)
+        generate_drug_test_set(kg_labels_file=kg_labels_file, test_df=test_df, drug_class_name=drug_class_name, out_dir=out_dir)
 
         return (
             train_df_ss,
@@ -637,9 +637,9 @@ def create_data_splits(
             main_test_df,
         )
 
-    generate_drug_test_set(kg_labels_file, test_df, drug_class_name, out_dir)
+    generate_drug_test_set(kg_labels_file=kg_labels_file, test_df=test_df, drug_class_name=drug_class_name, out_dir=out_dir)
     for data in ["train_data", "test_data", "validation_data"]:
-        triplets_to_file(out_dir, eval(data.replace("data", "df")), data)
+        triplets_to_file(out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data)
     print("all done :)")
     return (
         train_df,
