@@ -3,42 +3,36 @@
 """classifiers for ML approaches of SynDRep.  modified from CLEP (https://github.com/hybrid-kg/clep) """
 
 
+import copy
 import json
 import logging
 import pathlib
 import pickle
 import sys
 from collections import defaultdict
-from typing import Dict, List, Any, Callable, Tuple
-from sklearn.preprocessing import MinMaxScaler
-import copy
+from typing import Any, Callable, Dict, List, Tuple
 
 import click
 import numpy as np
 import pandas as pd
+from scipy.stats import loguniform, uniform
 from sklearn import (
-    linear_model,
-    svm,
     ensemble,
+    linear_model,
+    metrics,
     model_selection,
     multiclass,
-    metrics,
     preprocessing,
+    svm,
 )
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import MinMaxScaler
 from skopt import BayesSearchCV
+from skopt.space import Categorical, Integer, Real
 from xgboost import XGBClassifier
 
-from scipy.stats import uniform, loguniform
-from skopt.space import Real, Categorical, Integer
-
-from SynDRep.ML.scoring import multiclass_score_func, draw_graph
-
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.WARN)
-# logging.basicConfig(
-#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+from SynDRep.ML.scoring import draw_graph, multiclass_score_func
 
 
 def classify_data(
@@ -50,8 +44,25 @@ def classify_data(
     validation_cv: int,
     scoring_metrics: List[str],
     rand_labels: bool,
-    *args,
+    **kwargs,
 ):
+    """
+    Classify data using different ML models. Then selects the best model and uses it for classification
+
+    :param data_for_training: DataFrame containing training data
+    :param data_for_prediction: DataFrame containing prediction data
+    :param optimizer_name: optimization algorithm for hyperparameter tuning
+    :param model_names: list of ML models to compare
+    :param out_dir: output directory for storing results
+    :param validation_cv: number of cross-validation folds for model tuning
+    :param scoring_metrics: list of scoring metrics to use for model evaluation
+    :param rand_labels: whether to randomly assign labels to the data for cross-validation
+    :param args: additional arguments to pass to the ML model
+
+    :return: DataFrame containing predictions and their probabilities for both classes
+
+
+    """
     # run cross-validation and train the model
 
     trained_model, scaler, columns, best_model_name = compare_models(
@@ -62,7 +73,7 @@ def classify_data(
         validation_cv=validation_cv,
         scoring_metrics=scoring_metrics,
         rand_labels=rand_labels,
-        *args,
+        **kwargs,
     )
 
     # predict on prediction set
@@ -119,8 +130,21 @@ def compare_models(
     validation_cv: int,
     scoring_metrics: List[str],
     rand_labels: bool,
-    *args,
-) -> Dict[int, Any]:
+    **kwargs,
+):
+    """
+    Compare multiple models using cross-validation and return the best model.
+
+    :param model_names: List of model names.
+    :param data: DataFrame containing features and labels.
+    :param optimizer_name: Name of the optimizer to use for hyperparameter tuning.
+    :param out_dir: Output directory for saving the results.
+    :param validation_cv: Number of folds for cross-validation.
+    :param scoring_metrics: List of scoring metrics to use for cross-validation.
+    :param rand_labels: Whether to randomize the labels for cross-validation.
+
+    :return: Trained model, scaler, feature names, best model name.
+    """
     # get feature names
     columns = data.copy().drop(columns="label").columns
 
@@ -136,6 +160,7 @@ def compare_models(
             validation_cv=validation_cv,
             scoring_metrics=scoring_metrics,
             rand_labels=rand_labels,
+            **kwargs,
         )
 
     # load cross-validation results
@@ -158,6 +183,7 @@ def compare_models(
         out_dir=out_dir,
         validation_cv=validation_cv,
         rand_labels=rand_labels,
+        **kwargs,
     )
     return trained_model, scaler, columns, best_model
 
@@ -169,11 +195,24 @@ def train_model(
     out_dir: str,
     validation_cv: int,
     rand_labels: bool,
-    *args,
+    **kwargs,
 ):
+    """
+    Train a classifier using cross-validation.
+
+    :param data: data to train
+    :param model_name: name of the classifier
+    :param optimizer_name: name of the optimizer
+    :param out_dir: output directory
+    :param validation_cv: number of cross-validation folds
+    :param rand_labels: whether to randomly shuffle labels
+    :param args: additional arguments for the classifier and optimizer
+
+    :return: trained classifier,  and scaler
+    """
     # Get classifier user arguments
     model, optimizer_cv = get_classifier(
-        model_name=model_name, cv_opt=validation_cv, *args
+        model_name=model_name, cv_opt=validation_cv, **kwargs
     )
 
     # Separate embeddings from labels in data
@@ -215,11 +254,11 @@ def run_cross_validation(
     validation_cv: int,
     scoring_metrics: List[str],
     rand_labels: bool,
-    *args,
+    **kwargs,
 ) -> Dict[str, Any]:
-    """Perform classification on embeddings generated from previous step.
+    """Perform cross-validation on data.
 
-    :param data: Dataframe containing the embeddings
+    :param data: Dataframe containing the input features
     :param model_name: model that should be used for cross validation
     :param optimizer_name: Optimizer used to optimize the classification
     :param out_dir: Path to the output directory
@@ -227,11 +266,12 @@ def run_cross_validation(
     :param scoring_metrics: Scoring metrics tested during cross validation
     :param rand_labels: Boolean variable to indicate if labels must be randomized to check for ML stability
     :arg args: Custom arguments to the estimator model
+
     :return: Dictionary containing the cross validation results
     """
     # Get classifier user arguments
     model, optimizer_cv = get_classifier(
-        model_name=model_name, cv_opt=validation_cv, *args
+        model_name=model_name, cv_opt=validation_cv, **kwargs
     )
 
     # Separate embeddings from labels in data
@@ -301,6 +341,8 @@ def _do_multiclass_classification(
     :param cv: Number of cross validation splits to be carried out
     :param scoring: List of scoring metrics tested during cross validation
     :param return_estimator: Boolean value to indicate if the estimator used should returned in the results
+
+    :return: Dictionary containing the cross validation results
     """
     unique_labels = list(np.unique(y))
     # logger.debug(f"unique_labels:\n {unique_labels}")
@@ -422,7 +464,16 @@ def _multiclass_metric_evaluator(
     y_pred: np.ndarray,
     **kwargs,
 ) -> float:
-    """Calculate the average metric for multiclass classifiers."""
+    """Calculate the average metric for multiclass classifiers.
+
+    :param metric_func: Function to calculate the metric.
+    :param n_classes: Number of classes.
+    :param y_test: Ground truth labels.
+    :param y_pred: Predicted labels.
+    :param kwargs: Additional keyword arguments for the metric function.
+
+    :return: Average metric value.
+    """
     metric = 0
 
     for label in range(n_classes):
@@ -433,28 +484,35 @@ def _multiclass_metric_evaluator(
 
 
 def get_classifier(
-    model_name: str, cv_opt: int, *args
+    model_name: str, cv_opt: int, **kwargs
 ) -> Tuple[BaseEstimator, StratifiedKFold]:
-    """Retrieve the appropriate classifier from sci-kit learn based on the arguments."""
+    """Retrieve the appropriate classifier from sci-kit learn based on the arguments.
+
+    :param model_name: Name of the classifier.
+    :param cv_opt: Number of cross-validation splits.
+    :param args: Additional parameters for the classifier.
+
+    :return: Tuple of classifier object and cross-validation object.
+    """
     cv = model_selection.StratifiedKFold(n_splits=cv_opt, shuffle=True)
 
     if model_name == "logistic_regression":
-        model = linear_model.LogisticRegression(*args, solver="lbfgs")
+        model = linear_model.LogisticRegression(**kwargs, solver="lbfgs")
 
     elif model_name == "elastic_net":
         # Logistic regression with elastic net penalty & equal weightage to l1 and l2
         model = linear_model.LogisticRegression(
-            *args, penalty="elasticnet", solver="saga"
+            **kwargs, penalty="elasticnet", solver="saga"
         )
 
     elif model_name == "svm":
-        model = svm.SVC(*args, gamma="scale", verbose=True)
+        model = svm.SVC(**kwargs, gamma="scale", verbose=True)
 
     elif model_name == "random_forest":
-        model = ensemble.RandomForestClassifier(*args)
+        model = ensemble.RandomForestClassifier(**kwargs)
 
     elif model_name == "gradient_boost":
-        model = XGBClassifier(*args)
+        model = XGBClassifier(**kwargs)
 
     else:
         raise ValueError(
@@ -465,7 +523,16 @@ def get_classifier(
 
 
 def get_optimizer(optimizer: str, estimator, model, cv: StratifiedKFold, scorer):
-    """Retrieve the appropriate optimizer from sci-kit learn based on the arguments."""
+    """Retrieve the appropriate optimizer from sci-kit learn based on the arguments.
+
+    :param optimizer: Name of the optimizer.
+    :param estimator: The estimator to be optimized.
+    :param model: The model to be optimized.
+    :param cv: Cross-validation object.
+    :param scorer: Scorer for cross-validation.
+
+    :return: Optimizer object.
+    """
     if optimizer == "grid_search":
         param_grid = get_param_grid(model)
         return model_selection.GridSearchCV(
@@ -490,8 +557,15 @@ def get_optimizer(optimizer: str, estimator, model, cv: StratifiedKFold, scorer)
         raise ValueError(f"Unknown optimizer, {optimizer}.")
 
 
-def _save_json(results: Dict[str, Any], out_dir: str, model_name: str) -> None:
-    """Save the cross validation results as a json file."""
+def _save_json(model_name: str, out_dir: str, results: Dict[str, Any]) -> None:
+    """Save the cross validation results as a json file.
+
+    :param model_name: Name of the model.
+    :param out_dir: Output directory where the json file will be saved.
+    :param results: Dictionary containing the cross validation results.
+
+    :return: None
+    """
     for key in results.keys():
         # Check if the result is a numpy array, if yes convert to list
         if isinstance(results[key], np.ndarray):
@@ -520,8 +594,13 @@ def _save_json(results: Dict[str, Any], out_dir: str, model_name: str) -> None:
         json.dump(results, out, indent=4)
 
 
-def get_param_grid(model_name):
-    """Get the parameter grid for each machine learning model for grid search."""
+def get_param_grid(model_name: str) -> dict:
+    """Get the parameter grid for each machine learning model for grid search.
+
+    :param model_name: Name of the model.
+
+    :return: Parameter grid for grid search.
+    """
 
     if model_name == "logistic_regression":
         c_values = [0.01, 0.1, 0.25, 0.5, 0.8, 0.9, 1, 10]
@@ -563,8 +642,13 @@ def get_param_grid(model_name):
     return param_grid
 
 
-def get_param_dist(model_name):
-    """Get the parameter distribution for each machine learning model for random search."""
+def get_param_dist(model_name: str) -> dict:
+    """Get the parameter distribution for each machine learning model for random search.
+
+    :param model_name: Name of the model
+
+    :return: Parameter distribution for the model.
+    """
     if model_name == "logistic_regression":
         param_dist = dict(C=loguniform(1e-6, 1e6))
 
@@ -595,8 +679,13 @@ def get_param_dist(model_name):
     return param_dist
 
 
-def get_param_space(model_name):
-    """Get the parameter space for each machine learning model for bayesian search."""
+def get_param_space(model_name: str) -> dict:
+    """Get the parameter space for each machine learning model for bayesian search.
+
+    :param model_name: Name of the model
+
+    :return: Parameter space for the model.
+    """
     if model_name == "logistic_regression":
         param_space = dict(C=Real(1e-6, 1e6, prior="log-uniform"))
 

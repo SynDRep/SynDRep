@@ -3,6 +3,7 @@
 """Wrapper for scoring functions."""
 
 import json
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import preprocessing
@@ -10,7 +11,15 @@ from numpy import mean
 
 
 def multiclass_score_func(y, y_pred, metric_func, **kwargs):
-    """Calculate the multiclass metric score of any sklearn metric."""
+    """Calculate the multiclass metric score of any sklearn metric.
+    
+    :param y: Ground truth labels
+    :param y_pred: Predicted labels
+    :param metric_func: sklearn metric function
+    :param kwargs: Additional keyword arguments for the metric function
+    
+    :return: Metric score
+    """
     classes = np.unique(y)
     n_classes = len(classes)
 
@@ -30,7 +39,15 @@ def multiclass_score_func(y, y_pred, metric_func, **kwargs):
     return metric
 
 
-def draw_graph(model_names, out_dir, metric="roc_auc"):
+def draw_graph(model_names: str, out_dir: str|Path, metric: str="roc_auc"):
+    """Draw a boxplot for different ML models.
+    
+    :param model_names: List of ML model names
+    :param out_dir: Output directory for the output file
+    :param metric: Metric to be plotted. Defaults to "roc_auc"
+    
+    :return: A dictionary containing mean scores for each model
+    """
 
     data_dict = {}
     models_mean = {}

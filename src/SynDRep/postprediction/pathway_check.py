@@ -537,8 +537,6 @@ def get_drugs_for_disease(disease: str) -> set:
             # Extract drug information from the API response
 
             for result in data["results"]:
-                # if result.get('spl_product_data_elements'):
-                #     drugs .append(result['spl_product_data_elements'][0].split(' ')[0])
                 if result.get("openfda"):
                     if result.get("openfda").get("generic_name"):
                         drugs.append(
