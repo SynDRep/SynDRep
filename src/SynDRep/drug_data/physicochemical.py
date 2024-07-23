@@ -1,5 +1,6 @@
-from itertools import combinations
-from pathlib import Path
+# -*- coding: utf-8 -*-
+
+"""get physicochemical drug data """
 
 import numpy
 import pandas as pd

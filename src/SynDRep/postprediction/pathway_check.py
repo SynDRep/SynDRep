@@ -2,10 +2,10 @@
 """wrapper for pathway analysis."""
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Callable, Tuple
-import pandas as pd 
+from typing import Dict, List
 
 import networkx as nx
+import pandas as pd
 import requests
 
 
@@ -13,7 +13,7 @@ def generate_graph(kg_file: str | Path) -> nx.DiGraph:
     """This function reads a knowledge graph file and generates a directed graph using NetworkX.
 
     :param kg_file: The path to the knowledge graph file. The file should contain lines in the format: source<TAB>relation<TAB>target.
-    
+
     :return: A directed graph representing the knowledge graph. Each edge has a 'label' attribute representing the relation between the nodes.
     """
     with open(kg_file, "r") as f:
@@ -30,14 +30,16 @@ def generate_graph(kg_file: str | Path) -> nx.DiGraph:
     return G
 
 
-def get_nodes_within_n_dist(Graph: nx.DiGraph, source_node: str, n: int) -> Dict[str, int]:
+def get_nodes_within_n_dist(
+    Graph: nx.DiGraph, source_node: str, n: int
+) -> Dict[str, int]:
     """This function computes the shortest path lengths from a given source node to all other nodes in the graph,
     and then extracts the nodes within a maximum of n hops.
 
     :param Graph: The directed graph to analyze.
     :param source_node: The source node from which to compute shortest path lengths.
     :param n: The maximum number of hops to consider.
-    
+
     :return: A dictionary where the keys are the nodes within n hops of the source node, and the values are the distances to those nodes.
     """
 
@@ -57,11 +59,8 @@ def get_nodes_within_n_dist(Graph: nx.DiGraph, source_node: str, n: int) -> Dict
 
 
 def get_shared_neighbors_within_n_dist(
-    Graph: nx.DiGraph, 
-    node1: str, 
-    node2: str, 
-    n: int
-    )-> List[str]:
+    Graph: nx.DiGraph, node1: str, node2: str, n: int
+) -> List[str]:
     """
     This function computes the shared neighbors of two nodes in the graph within a maximum of n hops.
 
@@ -69,7 +68,7 @@ def get_shared_neighbors_within_n_dist(
     :param node1: The first node.
     :param node2: The second node.
     :param n: The maximum number of hops to consider.
-    
+
     :return: A list of the shared neighbors of node1 and node2 within n hops."""
 
     # get set of neighbors of node1
@@ -88,8 +87,8 @@ def get_disease_neighbors(
     drug: str,
     kg_labels: pd.DataFrame,
     n: int,
-    disease_class_name:str="Pathology"
-)-> Dict[str, int]:
+    disease_class_name: str = "Pathology",
+) -> Dict[str, int]:
     """
     This function computes the disease neighbors of a drug in the graph within a maximum of n hops.
 
@@ -98,9 +97,9 @@ def get_disease_neighbors(
     :param kg_labels: A dataframe containing the labels of the nodes in the graph.
     :param n: The maximum number of hops to consider.
     :param disease_class_name: The name indicating disease class in KG.
-    
+
     :return: A dictionary where the keys are the disease neighbors of the drug, and the values are the distances to those nodes.
-    """ 
+    """
 
     # get dictionary of types
     Types_dict = dict(zip(kg_labels["Name"], kg_labels["Type"]))
@@ -132,7 +131,7 @@ def get_int_diseases(
     n: int,
     disease_class_name: str,
     disease_substring: str | List[str],
-    ) -> Dict[str,int]:
+) -> Dict[str, int]:
     """
     This function computes the disease neighbors of a drug in the graph within a maximum of n hops.
 
@@ -142,10 +141,10 @@ def get_int_diseases(
     :param n: The maximum number of hops to consider.
     :param disease_class_name: The name indicating disease class in KG.
     :param disease_substring: The substring or list of substrings to search for in the disease names.
-    
+
     :return: A dictionary where the keys are the disease neighbors of the drug, and the values are the distances to those nodes.
     """
-    
+
     # get the diseases and distances
     disease_neighbors = get_disease_neighbors(
         Graph, drug, kg_labels, n, disease_class_name
@@ -154,7 +153,11 @@ def get_int_diseases(
     # get a set of  diseases
     diseases = kg_labels[kg_labels["Type"] == disease_class_name]
 
-    substrings = disease_substring if isinstance(disease_substring, list) else [disease_substring]
+    substrings = (
+        disease_substring
+        if isinstance(disease_substring, list)
+        else [disease_substring]
+    )
     mask = diseases["name"].apply(lambda x: any(sub in x.lower() for sub in substrings))
     int_diseases = diseases[mask]
     int_diseases_list = int_diseases["name"].to_list()
@@ -167,8 +170,8 @@ def get_int_diseases(
 
 def get_shared_int_diseases(
     Graph: nx.DiGraph,
-    drug1:str,
-    drug2:str,
+    drug1: str,
+    drug2: str,
     kg_labels: pd.DataFrame,
     n: int,
     disease_class_name: str,
@@ -184,7 +187,7 @@ def get_shared_int_diseases(
     :param n: The maximum number of hops to consider.
     :param disease_class_name: The name indicating disease class in KG.
     :param disease_substring: The substring or list of substrings to search for in the disease names.
-    
+
     :return: A set of the shared int diseases of the two drugs.
     """
 
@@ -207,8 +210,8 @@ def get_protein_neighbors(
     drug: str,
     kg_labels: pd.DataFrame,
     n: int,
-    protein_type_str:str="Protein"
-)-> Dict[str, int]:
+    protein_type_str: str = "Protein",
+) -> Dict[str, int]:
     """
     This function computes the protein neighbors of a drug in the graph within a maximum of n hops.
 
@@ -217,7 +220,7 @@ def get_protein_neighbors(
     :param kg_labels: A dataframe containing the labels of the nodes in the graph.
     :param n: The maximum number of hops to consider.
     :param protein_type_str: The name indicating protein type in KG.
-    
+
     :return: A dictionary where the keys are the protein neighbors of the drug, and the values are the distances to those nodes.
     """
 
@@ -261,7 +264,7 @@ def get_shared_proteins(
     :param kg_labels: A dataframe containing the labels of the nodes in the graph.
     :param n: The maximum number of hops to consider.
     :param protein_type_str: The name indicating protein type in KG.
-    
+
     :return: A set of the shared proteins of the two drugs.
     """
 
@@ -277,18 +280,14 @@ def get_shared_proteins(
     return shared_neighbor_proteins
 
 
-def get_the_shortest_paths(
-    Graph: nx.DiGraph,
-    node1: str,
-    node2: str
-) -> list:
+def get_the_shortest_paths(Graph: nx.DiGraph, node1: str, node2: str) -> list:
     """
     This function computes the shortest paths between two nodes in the graph.
 
     :param Graph: The directed graph to analyze.
     :param node1: The first node.
     :param node2: The second node.
-    
+
     :return: A list of the shortest paths between the two nodes.
     """
 
@@ -312,10 +311,7 @@ def get_the_shortest_paths(
 
 
 def get_path_within_n_distance(
-    Graph: nx.DiGraph,
-    node1: str,
-    node2: str,
-    n: int
+    Graph: nx.DiGraph, node1: str, node2: str, n: int
 ) -> list:
     """
     This function computes the shortest paths between two nodes in the graph within a maximum of n hops.
@@ -324,7 +320,7 @@ def get_path_within_n_distance(
     :param node1: The first node.
     :param node2: The second node.
     :param n: The maximum number of hops to consider.
-    
+
     :return: A list of the shortest paths between the two nodes within n hops.
     """
 
@@ -344,12 +340,8 @@ def get_path_within_n_distance(
 
 
 def get_shared_pathway_to_disease(
-    Graph: nx.DiGraph,
-    drug1: str,
-    drug2,
-    disease: str,
-    n
-)-> list:
+    Graph: nx.DiGraph, drug1: str, drug2, disease: str, n
+) -> list:
     """
     This function computes the shared pathway to a disease of two drugs in the graph within a maximum of n hops.
 
@@ -358,7 +350,7 @@ def get_shared_pathway_to_disease(
     :param drug2: The second drug node.
     :param disease: The disease node.
     :param n: The maximum number of hops to consider.
-    
+
     :return: A list of the shared pathway to the disease of the two drugs.
     """
 
@@ -374,11 +366,11 @@ def get_shared_pathway_to_disease(
 
 
 def make_complete_path(
-    path:List[str],
+    path: List[str],
     Graph: nx.DiGraph,
-    print_path_txt: bool=False,
-    print_path_latex: bool=False
-    ) -> list:
+    print_path_txt: bool = False,
+    print_path_latex: bool = False,
+) -> list:
 
     result = []
 
@@ -426,6 +418,7 @@ def make_complete_path(
         return final_result, txt_print, string
     return final_result
 
+
 def get_pathways_to_all_shared_diseases(
     Graph: nx.DiGraph,
     drug1: str,
@@ -433,10 +426,10 @@ def get_pathways_to_all_shared_diseases(
     kg_labels: pd.DataFrame,
     n: int,
     disease_substring,
-    disease_class_name: str="Pathology",
+    disease_class_name: str = "Pathology",
     detailed_txt=False,
     detailed_latex=False,
-)-> Dict[str, List[List[List[str]]]]:
+) -> Dict[str, List[List[List[str]]]]:
     """
     This function computes the pathways to all shared diseases of two drugs in the graph within a maximum of n hops.
 
@@ -449,7 +442,7 @@ def get_pathways_to_all_shared_diseases(
     :param disease_class_name: The name of the disease class.
     :param detailed_txt: Whether to print the pathways in text format.
     :param detailed_latex: Whether to print the pathways in latex format.
-    
+
     :return: A dictionary of the pathways to all shared diseases of the two drugs.
     """
     shared_diseases = get_shared_int_diseases(
@@ -514,7 +507,7 @@ def get_drugs_for_disease(disease: str) -> set:
     """This function retrieves a set of drugs approved for a specific disease from the OpenFDA API.
 
     :param disease: The disease for which to retrieve approved drugs.
-    
+
     :return: A set of drugs approved for the specified disease.
     """
 

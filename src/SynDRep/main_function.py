@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """main SynDRep function"""
-import json
 from pathlib import Path
 from typing import List
 
