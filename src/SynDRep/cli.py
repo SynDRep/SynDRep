@@ -431,6 +431,9 @@ def run_syndrep(
     """
     if name_cid_dict:
         name_cid_dict = json.load(open(name_cid_dict))
+        
+    if all_drug_prop_dict:
+        all_drug_prop_dict = json.load(open(all_drug_prop_dict))
 
     run_SynDRep(
         all_drug_prop_dict=all_drug_prop_dict,
