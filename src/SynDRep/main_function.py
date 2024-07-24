@@ -31,7 +31,7 @@ def run_SynDRep(
     config_path: str | Path = None,
     device: str = "cuda",
     filter_training: bool = False,
-    method: str = "Embeeding_only",
+    method: str = "Embedding_only",
     nBits: int = 2048,
     name_cid_dict: dict = None,
     pred_reverse: bool = False,
@@ -57,17 +57,17 @@ def run_SynDRep(
     :param scoring_metrics: the scoring metrics to use for ML-models scoring.
     :param validation_cv: the number of cross-validation folds for ML-model tuning.
     :param all_drug_drug_predictions: whether to save all drug-drug combinations predictions. Defaults to False.
-    :param all_drug_prop_dict: a dictionary containingthe physicochemical properites for all drugs. Defaults to None.
+    :param all_drug_prop_dict: a dictionary containing physicochemical properties for all drugs. Defaults to None.
     :param all_out_file: the output file for all embedding predictions. Defaults to None.
     :param best_out_file: the output file for the best embedding predictions. Defaults to "predictions_best.csv".
     :param config_path: the path to the embedding model configuration file. Defaults to None.
     :param device: the device to use for computations. Defaults to "cuda".
     :param filter_training: whether to filter the training data from relations predicted by embedding. Defaults to False.
-    :param method: Method to use for syndrep. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML". Defaults to "Embeeding_only".
+    :param method: Method to use for syndrep. Please choose from: Embedding_only, Embedding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML". Defaults to "Embedding_only".
     :param nBits: the number of bits for Morgen fingerprint calculation. Defaults to 2048.
     :param name_cid_dict: a dictionary containing drug names and CIDs. Defaults to None.
     :param pred_reverse: whether to predict reverse relations using embedding models. Defaults to False.
-    :param predict_all: whether to save all test drug-drug relations prdicted by Embedding models . Defaults to False.
+    :param predict_all: whether to save all test drug-drug relations predicted by Embedding models . Defaults to False.
     :param radius: the radius for Morgen fingerprint calculation. Defaults to 6.
     :param rand_labels: whether to randomize the labels for ML classification. Defaults to False.
     :param scoring_method: the synergy scoring method to use. Defaults to "ZIP".
@@ -77,7 +77,7 @@ def run_SynDRep(
     :return: a DataFrame containing the best predicted relation for each pair drugs.
     """
 
-    if method == "Embeeding_only":
+    if method == "Embedding_only":
         generate_enriched_kg(
             combos_folder=combos_folder,
             kg_drug_file=kg_drug_file,
@@ -88,26 +88,26 @@ def run_SynDRep(
         )
 
         prediction_all, prediction_best = embed_and_predict(
-            kg_drug_file=kg_drug_file,
-            models_names=em_models_names,
-            kg_file=f"{out_dir}/enriched_kg.tsv",
-            out_dir=out_dir,
+            all_drug_drug_predictions=all_drug_drug_predictions,
+            all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
-            subsplits=subsplits,
-            kg_labels_file=kg_labels_file,
             drug_class_name=drug_class_name,
-            predict_all_test=predict_all,
-            all_out_file=all_out_file,
             filter_training=filter_training,
             get_embeddings_data=False,
+            kg_drug_file=kg_drug_file,
+            kg_file=f"{out_dir}/enriched_kg.tsv",
+            kg_labels_file=kg_labels_file,
+            models_names=em_models_names,
+            out_dir=out_dir,
             pred_reverse=pred_reverse,
+            predict_all_test=predict_all,
             sorted_predictions=sorted_predictions,
-            all_drug_drug_predictions=all_drug_drug_predictions,
+            subsplits=subsplits,
         )
         return prediction_best
 
-    elif method == "Embeeding_then_ML":
+    elif method == "Embedding_then_ML":
         if name_cid_dict is None:
             # load drug_df
             kg_drugs = pd.read_csv(kg_drug_file)
@@ -119,15 +119,15 @@ def run_SynDRep(
             all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
-            filter_training=filter_training,
             drug_class_name=drug_class_name,
+            filter_training=filter_training,
             get_embeddings_data=True,
             kg_file=kg_file,
             kg_labels_file=kg_labels_file,
             models_names=em_models_names,
             out_dir=out_dir,
-            subsplits=subsplits,
             predict_all=predict_all,
+            subsplits=subsplits,
         )
         embeddings = pd.read_csv(
             f"{out_dir}/{best_model}/{best_model}_embeddings_drugs.csv"
@@ -167,7 +167,7 @@ def run_SynDRep(
         )
 
         input_columns = [col for col in combined_df.columns if "embedding_" in col]
-        data_for_training, data_for_prediction = get_ML_train_and_preidction_data(
+        data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
             input_columns=input_columns,
@@ -209,7 +209,7 @@ def run_SynDRep(
             if ("name" not in col) and ("CID" not in col)
         ]
 
-        data_for_training, data_for_prediction = get_ML_train_and_preidction_data(
+        data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
             input_columns=input_columns,
@@ -234,15 +234,15 @@ def run_SynDRep(
             all_out_file=all_out_file,
             best_out_file=best_out_file,
             config_path=config_path,
-            filter_training=filter_training,
             drug_class_name=drug_class_name,
+            filter_training=filter_training,
             get_embeddings_data=True,
             kg_file=kg_file,
             kg_labels_file=kg_labels_file,
             models_names=em_models_names,
             out_dir=out_dir,
-            subsplits=subsplits,
             predict_all=predict_all,
+            subsplits=subsplits,
         )
         embeddings = pd.read_csv(
             f"{out_dir}/{best_model}/{best_model}_embeddings_drugs.csv"
@@ -295,7 +295,7 @@ def run_SynDRep(
             if ("name" not in col) and ("CID" not in col)
         ]
 
-        data_for_training, data_for_prediction = get_ML_train_and_preidction_data(
+        data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
             input_columns=input_columns,
@@ -316,11 +316,11 @@ def run_SynDRep(
 
     else:
         raise ValueError(
-            f"Invalid method: {method}. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML"
+            f"Invalid method: {method}. Please choose from: Embedding_only, Embedding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML"
         )
 
 
-def get_ML_train_and_preidction_data(
+def get_ML_train_and_prediction_data(
     all_input_df: pd.DataFrame,
     out_dir: str | Path,
     input_columns: list[str],

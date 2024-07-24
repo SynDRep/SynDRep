@@ -16,6 +16,14 @@ from SynDRep.main_function import run_SynDRep
 def main() -> None:
     """Run SynDRep."""
 
+all_drug_prop_option = click.option(
+    "-adp",
+    "--all-drug-prop-dict",
+    type=click.Path(exists=True),
+    help="Path to the all_drug_prop file.",
+    default=None,
+    required=False,
+)
 
 best_out_file_option = click.option(
     "-bof",
@@ -91,7 +99,7 @@ filter_training_option = click.option(
     "--filter-training",
     type=bool,
     default=False,
-    help="Filter training data from assesment of embedding models. Default: False",
+    help="Filter training data from assessment of embedding models. Default: False",
     required=False,
 )
 
@@ -133,14 +141,14 @@ method_option = click.option(
     "--method",
     type=click.Choice(
         [
-            "Embeeding_only",
-            "Embeeding_then_ML",
+            "Embedding_only",
+            "Embedding_then_ML",
             "Data_extraction_then_ML",
             "physicochemical_data_and_embedding_then_ML",
         ]
     ),
-    default="Embeeding_only",
-    help="Method to use for syndrep. Please choose from: Embeeding_only, Embeeding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML",
+    default="Embedding_only",
+    help="Method to use for syndrep. Please choose from: Embedding_only, Embedding_then_ML, Data_extraction_then_ML, physicochemical_data_and_embedding_then_ML",
     required=False,
 )
 
@@ -150,7 +158,7 @@ ml_models_option = click.option(
     multiple=True,
     type=str,
     default=["random_forest"],
-    help='Models to use. can provide more than one of "logistic_regression", "elastic_net", "svm", "random_forest", and "gradient_boost"',
+    help='ML-Models to use. can provide more than one of "logistic_regression", "elastic_net", "svm", "random_forest", and "gradient_boost"',
     required=False,
 )
 
@@ -212,7 +220,7 @@ rand_labels_option = click.option(
     "--rand-labels",
     type=bool,
     default=False,
-    help="Whether to schuffle the labels randomly.",
+    help="Whether to shuffle the labels randomly.",
     required=False,
 )
 
@@ -368,6 +376,7 @@ def embedding_and_prediction(
 
 
 @main.command()
+@all_drug_prop_option
 @best_out_file_option
 @combos_folder_option
 @config_path_option
@@ -392,6 +401,7 @@ def embedding_and_prediction(
 @subsplits_option
 @validation_cv_option
 def run_syndrep(
+    all_drug_prop_dict,
     best_out_file,
     combos_folder,
     config_path,
@@ -423,6 +433,7 @@ def run_syndrep(
         name_cid_dict = json.load(open(name_cid_dict))
 
     run_SynDRep(
+        all_drug_prop_dict=all_drug_prop_dict,
         best_out_file=best_out_file,
         combos_folder=combos_folder,
         config_path=config_path,

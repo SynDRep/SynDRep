@@ -294,7 +294,7 @@ def merge_files(folder_path: str | Path) -> pd.DataFrame:
     :return: a DataFrame with all csv files concatenated.
     """
 
-    # Get a list of dataframes of the files
+    # Get a list of data frames of the files
     dfs = [pd.read_csv(f) for f in Path(folder_path).iterdir() if f.is_file()]
     # concatenate all dfs
     all_combinations = pd.concat(dfs, ignore_index=True)
@@ -349,7 +349,8 @@ def add_cid(
 
     :return: updated DataFrame with drugs cid and updated name_cid_dict
     """
-
+    if 'Drug_CID' in df.columns:
+        return name_cid_dict, df
     cid_column = drug_name_column.replace("name", "CID")
     df[cid_column] = None
 

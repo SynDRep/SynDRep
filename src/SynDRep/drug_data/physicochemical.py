@@ -149,8 +149,8 @@ def get_properties_dictionary(drug_name: str) -> dict | None:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{drug_cid}/property/CanonicalSMILES,MolecularWeight,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,FeatureRingCount3D,RotatableBondCount/json"
         response = requests.get(url)
         if response.status_code == 200:
-            drug_properities = response.json()["PropertyTable"]["Properties"][0]
-            return drug_properities
+            drug_properties = response.json()["PropertyTable"]["Properties"][0]
+            return drug_properties
         else:
             return None
     else:
