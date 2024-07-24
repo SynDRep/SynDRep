@@ -337,7 +337,11 @@ def kg_embedding(
 
     # run pipeline
     pipeline_results = run_pipeline(
-        train_tf, test_tf, validation_tf, model_name, out_dir
+        train_tf=train_tf,
+        test_tf=test_tf,
+        validation_tf=validation_tf,
+        model_name=model_name,
+        out_dir=out_dir,
     )
 
     # prediction
@@ -365,7 +369,9 @@ def kg_embedding(
     mean, hits = mean_hits(
         f"{out_dir}/{model_name}/{model_name}_best_model_results/results.json"
     )
-    roc = multiclass_score_func(best_test_pred, main_test_df)
+    roc = multiclass_score_func(
+        prediction_best_df=best_test_pred, actual_test_df=main_test_df
+    )
     results_dict = {
         "Percentage of true predictions for all relations": percent_true,
         "roc_auc for all relations": roc,
@@ -622,10 +628,17 @@ def create_data_splits(
             "validation_data_ss",
             "main_test_data",
         ]:
-            triplets_to_file(out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data)
+            triplets_to_file(
+                out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data
+            )
 
         print("all done :)")
-        generate_drug_test_set(kg_labels_file=kg_labels_file, test_df=test_df, drug_class_name=drug_class_name, out_dir=out_dir)
+        generate_drug_test_set(
+            kg_labels_file=kg_labels_file,
+            test_df=test_df,
+            drug_class_name=drug_class_name,
+            out_dir=out_dir,
+        )
 
         return (
             train_df_ss,
@@ -637,9 +650,16 @@ def create_data_splits(
             main_test_df,
         )
 
-    generate_drug_test_set(kg_labels_file=kg_labels_file, test_df=test_df, drug_class_name=drug_class_name, out_dir=out_dir)
+    generate_drug_test_set(
+        kg_labels_file=kg_labels_file,
+        test_df=test_df,
+        drug_class_name=drug_class_name,
+        out_dir=out_dir,
+    )
     for data in ["train_data", "test_data", "validation_data"]:
-        triplets_to_file(out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data)
+        triplets_to_file(
+            out_folder=out_dir, df=eval(data.replace("data", "df")), data_type=data
+        )
     print("all done :)")
     return (
         train_df,
