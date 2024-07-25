@@ -261,6 +261,7 @@ def kg_embedding(
     out_dir: str | Path,
     all_out_file: str = None,
     best_out_file: str = "predictions_best.csv",
+    enriched_kg: bool = False,
     config_path: str | Path = None,
     filter_training: bool = False,
     predict_all: bool = False,
@@ -387,59 +388,69 @@ def kg_embedding(
         indent=4,
     )
     # specif types testing set predictions
+    if enriched_kg:
+        sp_test_df = pd.read_table(
+            f"{out_dir}/test_{drug_class_name}_{drug_class_name}.tsv",
+            header=None,
+            names=["source", "relation", "target"],
+        )
+        predict_diff_dataset(
+            model=pipeline_results.model,
+            model_name=model_name,
+            training_tf=train_tf,
+            main_test_df=sp_test_df,
+            out_dir=out_dir,
+            kg_labels_file=kg_labels_file,
+            best_out_file=f"{drug_class_name}_{drug_class_name}_{best_out_file}",
+            with_annotation=True,
+            subsplits=subsplits,
+            training_df=train_df,
+            testing_df=test_df,
+            validation_df=validation_df,
+            filter_training=filter_training,
+            predict_all=predict_all,
+            all_out_file=f"{drug_class_name}_{drug_class_name}_{all_out_file}",
+        )
 
-    sp_test_df = pd.read_table(
-        f"{out_dir}/test_{drug_class_name}_{drug_class_name}.tsv",
-        header=None,
-        names=["source", "relation", "target"],
-    )
-    predict_diff_dataset(
-        model=pipeline_results.model,
-        model_name=model_name,
-        training_tf=train_tf,
-        main_test_df=sp_test_df,
-        out_dir=out_dir,
-        kg_labels_file=kg_labels_file,
-        best_out_file=f"{drug_class_name}_{drug_class_name}_{best_out_file}",
-        with_annotation=True,
-        subsplits=subsplits,
-        training_df=train_df,
-        testing_df=test_df,
-        validation_df=validation_df,
-        filter_training=filter_training,
-        predict_all=predict_all,
-        all_out_file=f"{drug_class_name}_{drug_class_name}_{all_out_file}",
-    )
+        best_test_pred_sp_type = pd.read_csv(
+            f"{out_dir}/{model_name}/{drug_class_name}_{drug_class_name}_{best_out_file}"
+        )
+        percent_true_sp_type = percents_true_predictions(best_test_pred_sp_type)
 
-    best_test_pred_sp_type = pd.read_csv(
-        f"{out_dir}/{model_name}/{drug_class_name}_{drug_class_name}_{best_out_file}"
-    )
-    percent_true_sp_type = percents_true_predictions(best_test_pred_sp_type)
+        results_dict = {
+            "Percentage of true predictions for all relations": percent_true,
+            "roc_auc for all relations": roc,
+            "adjusted_arithmetic_mean_rank": mean,
+            "hits_at_10": hits,
+            f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations": percent_true_sp_type,
+        }
+        json.dump(
+            results_dict,
+            open(
+                f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
+                "w",
+            ),
+            indent=4,
+        )
 
-    results_dict = {
-        "Percentage of true predictions for all relations": percent_true,
-        "roc_auc for all relations": roc,
-        "adjusted_arithmetic_mean_rank": mean,
-        "hits_at_10": hits,
-        f"Percentage of true predictions for {drug_class_name}-{drug_class_name} relations": percent_true_sp_type,
-    }
-    json.dump(
-        results_dict,
-        open(
-            f"{out_dir}/{model_name}/{model_name}_best_model_results/{model_name}_scoring_results.json",
-            "w",
-        ),
-        indent=4,
-    )
-
-    return (
-        train_tf,
-        percent_true,
-        mean,
-        hits,
-        roc,
-        percent_true_sp_type,
-    )
+        return (
+            train_tf,
+            percent_true,
+            mean,
+            hits,
+            roc,
+            percent_true_sp_type,
+        )
+    else:
+        percent_true_sp_type = None
+        return (
+            train_tf,
+            percent_true,
+            mean,
+            hits,
+            roc,
+            percent_true_sp_type,
+        )
 
 
 def get_embeddings(
