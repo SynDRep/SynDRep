@@ -206,10 +206,6 @@ def run_SynDRep(
             nBits=nBits,
         )
 
-        combined_df.to_csv(
-            f"{best_model}_drug_combinations_physicochemical_and_graph_data.csv",
-            index=False,
-        )
 
         input_columns = [
             col
