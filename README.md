@@ -98,7 +98,7 @@ a file containing the drugs in KG.  It should be a CSV file containing all the n
 
 ## Usage
 
-**Note:** These are very basic commands for SynDRep, and the detailed options for each command can be found in the [documentation](#documentation)
+**Note:** These are very basic commands for SynDRep:
 
 1. **Run the SynDRep tool**
 The following command generates predicted synergy based on the method chosen.
