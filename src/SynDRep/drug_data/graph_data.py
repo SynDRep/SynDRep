@@ -33,21 +33,21 @@ def get_graph_data(
     row = {}
     row["Drug1_name"] = drug1_name
     row["Drug2_name"] = drug2_name
-    row["Drug1_degree"] = get_drug_node_degree(Graph, drug1_name)
-    row["Drug2_degree"] = get_drug_node_degree(Graph, drug2_name)
+    row["Drug1_degree"] = get_drug_node_degree(Graph=Graph, drug_name=drug1_name)
+    row["Drug2_degree"] = get_drug_node_degree(Graph=Graph, drug_name=drug2_name)
     row["Drug1_clustering_coefficient"] = get_drug_clustering_coefficient(
-        Graph, drug1_name
+        Graph=Graph, drug_name=drug1_name
     )
     row["Drug2_clustering_coefficient"] = get_drug_clustering_coefficient(
-        Graph, drug2_name
+        Graph=Graph, drug_name=drug2_name
     )
-    row["Drug1_pagerank"] = get_drug_page_rank(Graph, drug1_name, pagerank_all)
-    row["Drug2_pagerank"] = get_drug_page_rank(Graph, drug2_name, pagerank_all)
+    row["Drug1_pagerank"] = get_drug_page_rank(Graph=Graph, drug_name=drug1_name,pagerank_all= pagerank_all)
+    row["Drug2_pagerank"] = get_drug_page_rank(Graph=Graph, drug_name=drug2_name,pagerank_all= pagerank_all)
     row["Shortest_path_length"] = get_shortest_path_length(
-        Graph, drug1_name, drug2_name
+        Graph=Graph, drug1_name=drug1_name, drug2_name=drug2_name
     )
     row["Cosine_similarity"] = get_cosine_similarity(
-        Graph, drug1_name, drug2_name, node_vectors, device
+        Graph=Graph, drug1_name=drug1_name,drug2_name= drug2_name, node_vectors=node_vectors, device=device
     )
     return pd.DataFrame(row, index=[0])
 

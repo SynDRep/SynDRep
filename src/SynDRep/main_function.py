@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """main SynDRep function"""
+import itertools
 from pathlib import Path
 from typing import List
 
 import pandas as pd
 from tqdm import tqdm
-
+from itertools import combinations
 from SynDRep.combos_preparation import generate_enriched_kg
 from SynDRep.drug_data import get_graph_and_physicochem_properties, get_physicochem_prop
 from SynDRep.embedding import compare_embeddings, embed_and_predict
@@ -139,21 +140,18 @@ def run_SynDRep(
 
         # Create an empty DataFrame for the combined embeddings
         combined_rows = []
-        combinations = list(combinations(embeddings.iterrows(), 2))
+        drug_combinations = list(combinations(embeddings.iterrows(), 2))
         # Iterate through all combinations of node pairs
-        for (idx1, row1), (idx2, row2) in tqdm(combinations):
+        for (idx1, row1), (idx2, row2) in tqdm(drug_combinations):
             combined_row = {}
 
             # Add the node ids to the combined row
             combined_row["Drug1_name"] = row1["entity"]
             combined_row["Drug2_name"] = row2["entity"]
             # Add the node cids to the combined row
-            combined_row["Drug1_CID"] = combined_row["Drug1_name"].apply(
-                name_cid_dict.get
-            )
-            combined_row["Drug2_CID"] = combined_row["Drug2_name"].apply(
-                name_cid_dict.get
-            )
+            combined_row["Drug1_CID"] = name_cid_dict.get(row1["entity"])
+            
+            combined_row["Drug2_CID"] = name_cid_dict.get(row2["entity"])
             # Add the embeddings to the combined row
             for col in embedding_columns:
                 combined_row[f"Drug1_{col}"] = row1[col]
@@ -167,6 +165,16 @@ def run_SynDRep(
         )
 
         input_columns = [col for col in combined_df.columns if "embedding_" in col]
+        
+        generate_enriched_kg(
+        combos_folder = combos_folder,
+        kg_drug_file=kg_drug_file,
+        kg_file=kg_file,
+        name_cid_dict=name_cid_dict,
+        out_dir=out_dir,
+        scoring_method=scoring_method,
+        )
+        
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
             out_dir=out_dir,
@@ -208,6 +216,16 @@ def run_SynDRep(
             for col in combined_df.columns
             if ("name" not in col) and ("CID" not in col)
         ]
+        
+        generate_enriched_kg(
+        combos_folder = combos_folder,
+        kg_drug_file=kg_drug_file,
+        kg_file=kg_file,
+        name_cid_dict=name_cid_dict,
+        out_dir=out_dir,
+        scoring_method=scoring_method,
+        )
+        
 
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
@@ -255,9 +273,9 @@ def run_SynDRep(
         # Create an empty DataFrame for the combined embeddings
         embedding_rows = []
         ph_ch_rows = []
-        combinations = list(combinations(embeddings.iterrows(), 2))
+        drug_combinations = list(combinations(embeddings.iterrows(), 2))
         # Iterate through all combinations of node pairs
-        for (idx1, row1), (idx2, row2) in tqdm(combinations):
+        for (idx1, row1), (idx2, row2) in tqdm(drug_combinations):
             embedding_row = {}
 
             # Add the embeddings to the combined row
@@ -294,6 +312,16 @@ def run_SynDRep(
             for col in combined_df.columns
             if ("name" not in col) and ("CID" not in col)
         ]
+        
+        generate_enriched_kg(
+        combos_folder = combos_folder,
+        kg_drug_file=kg_drug_file,
+        kg_file=kg_file,
+        name_cid_dict=name_cid_dict,
+        out_dir=out_dir,
+        scoring_method=scoring_method,
+        )
+        
 
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,

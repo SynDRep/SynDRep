@@ -292,7 +292,7 @@ def generate_morgan_fingerprint(
         drug_properties_dict = get_properties_dictionary(drug_name)
     smiles = get_smiles(drug_name, drug_properties_dict)
     mol = MolFromSmiles(smiles)
-    morgan_fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius, nBits=nBits)
+    morgan_fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=int(radius), nBits=int(nBits))
     morgan_fp_np = numpy.zeros((1,))
     Chem.DataStructs.ConvertToNumpyArray(morgan_fp, morgan_fp_np)
     return morgan_fp_np
@@ -332,8 +332,8 @@ def calculate_tanimoto_coefficient(
     mol1 = MolFromSmiles(smiles1)
     mol2 = MolFromSmiles(smiles2)
 
-    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, radius, nBits)
-    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, radius, nBits)
+    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, int(radius), int(nBits))
+    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, int(radius), int(nBits))
 
     # Calculate the Tanimoto coefficient
     tanimoto_coefficient = DataStructs.TanimotoSimilarity(fp1, fp2)

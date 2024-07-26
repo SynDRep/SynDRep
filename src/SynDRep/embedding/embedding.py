@@ -195,6 +195,7 @@ def compare_embeddings(
             best_out_file=best_out_file,
             config_path=config_path,
             drug_class_name=drug_class_name,
+            enriched_kg=enriched_kg,
             filter_training=filter_training,
             kg_file=kg_file,
             kg_labels_file=kg_labels_file,
