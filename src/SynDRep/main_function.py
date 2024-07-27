@@ -206,6 +206,8 @@ def run_SynDRep(
             nBits=nBits,
         )
 
+        # remove CIDs
+        combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
 
         input_columns = [
             col
