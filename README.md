@@ -2,9 +2,7 @@
 
 
 
-<p align="center">
-  <img src="docs/source/logo.jpg">
-</p>
+
 
 <h1 align="center">
   SynDRep: A Knowledge Graph-Enhanced Tool based on Synergistic Partner Prediction for Drug Repurposing
