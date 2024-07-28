@@ -301,6 +301,9 @@ def run_SynDRep(
             f"{best_model}_drug_combinations_physicochemical_and_embeddings.csv",
             index=False,
         )
+        
+        # remove CIDs
+        combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
 
         input_columns = [
             col
