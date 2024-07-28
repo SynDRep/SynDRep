@@ -148,10 +148,7 @@ def run_SynDRep(
             # Add the node ids to the combined row
             combined_row["Drug1_name"] = row1["entity"]
             combined_row["Drug2_name"] = row2["entity"]
-            # Add the node cids to the combined row
-            combined_row["Drug1_CID"] = name_cid_dict.get(row1["entity"])
             
-            combined_row["Drug2_CID"] = name_cid_dict.get(row2["entity"])
             # Add the embeddings to the combined row
             for col in embedding_columns:
                 combined_row[f"Drug1_{col}"] = row1[col]
