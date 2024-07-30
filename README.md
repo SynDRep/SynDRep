@@ -132,13 +132,9 @@ $ SynDRep classify -dt <DATA_FOR_TRAINING_CSV_FILE> -dp <DATA_FOR_PREDICTION_CSV
 
 If you have difficulties using SynDRep, please open an issue at our [GitHub](https://github.com/syndrep) repository.
 
-## Acknowledgements
+<!--## Acknowledgements
 
-### Citation
-
-
-
-### Graphics
+### Citation-->
 
 
 
