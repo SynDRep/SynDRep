@@ -204,7 +204,7 @@ def run_SynDRep(
         )
 
         # remove CIDs
-        combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
+        combined_df = combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
 
         input_columns = [
             col
@@ -283,9 +283,8 @@ def run_SynDRep(
             ph_ch_row = get_physicochem_prop(
                 drug1_name=row1["entity"],
                 drug2_name=row2["entity"],
-                out_dir=out_dir,
                 all_drug_prop_dict=all_drug_prop_dict,
-                device=device,
+                nBits=nBits,
                 radius=radius,
             )
             ph_ch_rows.append(ph_ch_row)
@@ -303,7 +302,7 @@ def run_SynDRep(
         )
         
         # remove CIDs
-        combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
+        combined_df = combined_df.drop(['Drug1_CID', 'Drug2_CID'], axis=1)
 
         input_columns = [
             col

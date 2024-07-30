@@ -218,7 +218,8 @@ def train_model(
     data_df = data.copy()
     labels = data_df["label"].values
     scaler = MinMaxScaler()
-    data_df = scaler.fit_transform(data_df.drop(columns="label"))
+    features = data_df.drop(columns="label")
+    data_df = pd.DataFrame(scaler.fit_transform(features), columns=features.columns)
 
     if rand_labels:
         np.random.shuffle(labels)
@@ -277,7 +278,8 @@ def run_cross_validation(
     data_df = data.copy()
     labels = data_df["label"].values
     scaler = MinMaxScaler()
-    data_df = scaler.fit_transform(data_df.drop(columns="label"))
+    features = data_df.drop(columns="label")
+    data_df = pd.DataFrame(scaler.fit_transform(features), columns=features.columns)
 
     if rand_labels:
         np.random.shuffle(labels)
