@@ -409,7 +409,7 @@ def get_ML_train_and_prediction_data(
 
     pred_dataset = pred_df.loc[:, first_column:]
     pred_dataset.to_csv(f"{out_dir}/ML_prediction_dataset.csv", index=False)
-    return train_dataset, pred_dataset
+    return train_dataset, pred_df
 
 
 def value_to_class(value: float) -> int:
