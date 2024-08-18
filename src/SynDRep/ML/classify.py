@@ -111,7 +111,7 @@ def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
     pred = pd.concat([ids, result_df], axis=1)
 
     # sort by probability
-    pred = pred.sort_values(by=["Probability_Positive_Class"], ascending=False)
+    pred = pred.sort_values(by=["Synergism_probability"], ascending=False)
     relation_dict = {1: "HAS_SYNERGISM_WITH", -1: "HAS_ANTAGONISM_WITH", 0: "HAS_ADDITIVE_EFFECT_WITH"}
 
     pred["relation_label"] = pred["Prediction"].apply(relation_dict.get)
