@@ -347,6 +347,7 @@ def run_SynDRep(
 
 def get_ML_train_and_prediction_data(
     all_input_df: pd.DataFrame,
+    name_cid_dict: dict,
     out_dir: str | Path,
     input_columns: list[str],
     scoring_method: str = "ZIP",
@@ -385,7 +386,7 @@ def get_ML_train_and_prediction_data(
     in_pharmacome = merged_df[(merged_df["DrugPair_comb_ph"].notnull())]
     not_in_pharmacome = merged_df[(merged_df["DrugPair_comb_ph"].isna())]
 
-    final_columns = (
+    final_columns_training = (
         [
             "Drug1_CID",
             "Drug2_CID",
@@ -395,9 +396,27 @@ def get_ML_train_and_prediction_data(
         + input_columns
         + ["label"]
     )
+    final_columns_prediction = (
+        [
+            "drug1_name",
+            "drug2_name",
+        ]
+        + input_columns
+    )
 
-    train_df = in_pharmacome[final_columns]
-    pred_df = not_in_pharmacome[final_columns[:-1]]
+    train_df = in_pharmacome[final_columns_training]
+    pred_df = not_in_pharmacome[final_columns_prediction]
+    pred_df = pred_df.rename(
+        columns={
+            "drug1_name": "Drug1_name",
+            "drug2_name": "Drug2_name",
+        }
+    )
+    pred_df.iloc[:,'Drug1_CID']= pred_df.iloc[:,'Drug1_name'].apply(name_cid_dict.get)
+    pred_df.iloc[:,'Drug2_CID']= pred_df.iloc[:,'Drug2_name'].apply(name_cid_dict.get)
+    
+    pred_df= pred_df[final_columns_training[:-1]]
+    
 
     train_df.to_csv(f"{out_dir}/ML_training_dataset_with_names.csv", index=False)
     pred_df.to_csv(f"{out_dir}/ML_prediction_dataset_with_names.csv", index=False)
