@@ -174,6 +174,7 @@ def run_SynDRep(
         
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
+            name_cid_dict=name_cid_dict,
             out_dir=out_dir,
             input_columns=input_columns,
             scoring_method=scoring_method,
@@ -224,6 +225,7 @@ def run_SynDRep(
 
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
+            name_cid_dict=name_cid_dict,
             out_dir=out_dir,
             input_columns=input_columns,
             scoring_method=scoring_method,
@@ -322,6 +324,7 @@ def run_SynDRep(
 
         data_for_training, data_for_prediction = get_ML_train_and_prediction_data(
             all_input_df=combined_df,
+            name_cid_dict=name_cid_dict,
             out_dir=out_dir,
             input_columns=input_columns,
             scoring_method=scoring_method,
