@@ -415,8 +415,8 @@ def get_ML_train_and_prediction_data(
             "drug2_name": "Drug2_name",
         }
     )
-    pred_df.iloc[:,'Drug1_CID']= pred_df.iloc[:,'Drug1_name'].apply(name_cid_dict.get)
-    pred_df.iloc[:,'Drug2_CID']= pred_df.iloc[:,'Drug2_name'].apply(name_cid_dict.get)
+    pred_df.loc[:,'Drug1_CID']= pred_df.loc[:,'Drug1_name'].apply(name_cid_dict.get)
+    pred_df.loc[:,'Drug2_CID']= pred_df.loc[:,'Drug2_name'].apply(name_cid_dict.get)
     
     pred_df= pred_df[final_columns_training[:-1]]
     
