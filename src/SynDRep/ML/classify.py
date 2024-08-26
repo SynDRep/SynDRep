@@ -88,6 +88,20 @@ def classify_data(
 
 
 def predict(model, data_for_prediction, scaler, columns, out_dir, model_name):
+    """
+    Predict using the trained model
+
+    :param model: trained ML model
+    :param data_for_prediction: DataFrame containing prediction data
+    :param scaler: scaler object for preprocessing
+    :param columns: columns to use for prediction
+    :param out_dir: output directory for storing results
+    :param model_name: name of the trained ML model
+    
+    :return: DataFrame containing predictions and their probabilities for both classes
+    """
+    
+    data_for_prediction = data_for_prediction.reset_index(drop=True)
 
     data_df = data_for_prediction[columns]
     if scaler is not None:
