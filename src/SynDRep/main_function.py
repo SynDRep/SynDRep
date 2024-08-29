@@ -268,35 +268,28 @@ def run_SynDRep(
         ]
 
         # Create an empty DataFrame for the combined embeddings
-        embedding_rows = []
-        ph_ch_rows = []
+        combined_rows = []
         drug_combinations = list(combinations(embeddings.iterrows(), 2))
         # Iterate through all combinations of node pairs
         for (idx1, row1), (idx2, row2) in tqdm(drug_combinations):
             embedding_row = {}
 
-            # Add the embeddings to the combined row
-            for col in embedding_columns:
-                embedding_row[f"Drug1_{col}"] = row1[col]
-                embedding_row[f"Drug2_{col}"] = row2[col]
-            embedding_rows.append(embedding_row)
-
             # get physicochemical data
-            ph_ch_row = get_physicochem_prop(
+            combined_row = get_physicochem_prop(
                 drug1_name=row1["entity"],
                 drug2_name=row2["entity"],
                 all_drug_prop_dict=all_drug_prop_dict,
-                nBits=nBits,
                 radius=radius,
+                nBits=nBits,
             )
-            ph_ch_rows.append(ph_ch_row)
 
-        embedding_df = pd.DataFrame(embedding_rows)
-        ph_ch_df = pd.concat(ph_ch_rows)
+            # Add the embeddings to the combined row
+            for col in embedding_columns:
+                combined_row[f"Drug1_{col}"] = row1[col]
+                combined_row[f"Drug2_{col}"] = row2[col]
+            combined_rows.append(combined_row)
 
-        combined_df = pd.concat([ph_ch_df, embedding_df], axis=1).reset_index(
-            inplace=True, drop=True
-        )
+        combined_df = pd.concat(combined_rows).reset_index(inplace=True, drop=True)
 
         combined_df.to_csv(
             f"{best_model}_drug_combinations_physicochemical_and_embeddings.csv",
