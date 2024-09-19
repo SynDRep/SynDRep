@@ -421,7 +421,7 @@ def _do_multiclass_classification(
                     y_pred=y_pred,
                     average="binary",
                 )
-                cv_results["test_f1_micro"].append(f1)
+                cv_results["test_f1"].append(f1)
 
             elif metric == "f1_micro":
                 f1_micro = _multiclass_metric_evaluator(
