@@ -71,13 +71,14 @@ def predict_diff_dataset(
         pred["tail_type"] = labels_dict.get(str(tail))
 
         # add to list of data frames
-        df_list_all.append(pred)
+        if predict_all:
+            df_list_all.append(pred)
 
         # add the best 1 to another df
         pred_best = pred.head(1)
         df_list_best.append(pred_best)
-
-    df_all = pd.concat(df_list_all, ignore_index=True)
+    if predict_all:
+        df_all = pd.concat(df_list_all, ignore_index=True)
     df_best = pd.concat(df_list_best, ignore_index=True)
     if with_annotation:
         if any([training_df is None, testing_df is None, validation_df is None]):
