@@ -93,7 +93,7 @@ a file containing the nodes Name and types such as protein, gene, or drug.
 
 a file containing the drugs in KG.  It should be a CSV file containing all the names of drugs in KG. It shoud have "Drug_name" column and any other columns.
 
-**The example_data folder found in this repository contains data that is intended solely for testing purposes. It consists of dummy data and should not be used to draw scientific conclusions.**
+
     
 
 ## Usage
